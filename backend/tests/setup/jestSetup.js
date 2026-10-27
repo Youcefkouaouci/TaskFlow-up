@@ -1,0 +1,19 @@
+// Variables d'environnement partagées par toutes les suites de test.
+// env.js saute dotenv.config() quand NODE_ENV=test (Jest le définit automatiquement).
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
+process.env.MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/taskflow_test";
+
+const path = require("path");
+
+// Fix Node.js 24 + Jest 30 + mongodb driver v7 :
+// runtime_adapters.js utilise import('os') dynamique (ESM) qui échoue
+// silencieusement dans le contexte VM CommonJS de Jest → makeClientMetadata
+// retourne {} → MongoDB 8.0 rejette la connexion ("Missing required sub-document 'driver'").
+// Solution : remplacer resolveRuntimeAdapters par une version synchrone.
+const runtimeAdapters = require(
+  path.resolve(__dirname, "../../node_modules/mongodb/lib/runtime_adapters"),
+);
+
+runtimeAdapters.resolveRuntimeAdapters = async (options) => ({
+  os: options.runtimeAdapters?.os ?? require("os"),
+});
