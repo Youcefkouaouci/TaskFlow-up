@@ -1,0 +1,90 @@
+services:
+  # Base de données MongoDB
+  mongodb:
+    image: mongo:8.0
+    container_name: taskflow-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=${MONGO_DB_NAME:-taskflow}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Backend Express (Node.js)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskflow-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://mongodb:27017/${MONGO_DB_NAME:-taskflow}
+      - JWT_SECRET=${JWT_SECRET:-dev-super-secret-key-taskflow-2026}
+      - NODE_ENV=development
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  # Frontend React (Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: taskflow-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_API_URL=http://localhost:${BACKEND_PORT:-3000}/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - taskflow-network
+
+  # Interface Web d'administration MongoDB (Mongo Express)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: taskflow-mongo-express
+    restart: unless-stopped
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8081}:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH=false
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+volumes:
+  mongo-data:
+    name: taskflow-mongo-data
+
+networks:
+  taskflow-network:
+    name: taskflow-network
+    driver: bridge
