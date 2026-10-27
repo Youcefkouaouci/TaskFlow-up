@@ -10,7 +10,9 @@
     "test": "jest --runInBand",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:unit": "jest --testPathPatterns=tests/unit --runInBand",
+    "test:integration": "jest --testPathPatterns=tests/integration"
   },
   "keywords": [],
   "author": "",
