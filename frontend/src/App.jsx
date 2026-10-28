@@ -1,3 +1,14 @@
+/**
+ * ============================================================================
+ * TaskFlow - Application Principale (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Connectée de bout en bout au Backend Express / MongoDB :
+ * - Authentification JWT (`/api/auth/login`, `/api/auth/register`)
+ * - CRUD Tâches & Matrice d'Eisenhower (`/api/tasks`)
+ * - Groupes, Projets & Invitations par e-mail (`/api/groups`, `/api/projects`, `/api/invitations`)
+ * ============================================================================
+ */
+
 import { useState, useEffect, useMemo } from 'react'
 import Header from './components/Header'
 import ContextSwitch from './components/ContextSwitch'
@@ -18,45 +29,29 @@ import {
   fetchTasks,
   createTask,
   toggleTaskCompleted,
+  updateTaskStatus,
   deleteTask,
   delegateTask,
-  moveTaskToQuadrant,
+  shareTask,
 } from './services/taskService'
 import {
   getCurrentUser,
   logoutUser,
 } from './services/authService'
+import { acceptInvitationToken } from './services/groupProjectService'
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('matrix') 
-  const [authMode, setAuthMode] = useState('login') 
+  const [currentPage, setCurrentPage] = useState('matrix') // 'matrix' | 'create-task' | 'login'
+  const [authMode, setAuthMode] = useState('login') // 'login' | 'register' | 'forgot-password'
   const [authEmail, setAuthEmail] = useState('')
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser())
   const [tasks, setTasks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState(null)
-  const [activeContext, setActiveContext] = useState('Entreprise') 
+  const [activeContext, setActiveContext] = useState('Entreprise') // 'Entreprise' | 'École'
   const [isFocusFaireOnly, setIsFocusFaireOnly] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('matrice')
   const [toast, setToast] = useState({ message: '', visible: false })
-
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        setIsLoading(true)
-        setLoadError(null)
-        const data = await fetchTasks()
-        setTasks(data)
-      } catch (error) {
-        setLoadError('Impossible de charger les tâches. Vérifiez votre connexion.')
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadTasks()
-  }, [])
 
   function showToast(message) {
     setToast({ message, visible: true })
@@ -65,6 +60,45 @@ export default function App() {
       setToast({ message: '', visible: false })
     }, 2500)
   }
+
+  // Recharger les tâches au démarrage et à chaque changement d'utilisateur connecté
+  useEffect(() => {
+    let active = true
+    async function loadTasks() {
+      try {
+        const data = await fetchTasks()
+        if (active) setTasks(data)
+      } catch (error) {
+        if (active) showToast('Erreur lors du chargement des tâches')
+        console.error(error)
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+    loadTasks()
+    return () => {
+      active = false
+    }
+  }, [currentUser])
+
+  // Si l'URL contient ?token=... (lien d'invitation reçu par e-mail), accepter automatiquement
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token && currentUser) {
+      acceptInvitationToken(token)
+        .then((res) => {
+          showToast(
+            `Invitation acceptée ! Vous avez rejoint « ${res.group?.name || 'le groupe'} »`
+          )
+          window.history.replaceState({}, '', window.location.pathname)
+          setActiveTab('partages')
+        })
+        .catch((err) => {
+          showToast(err.message || 'Impossible de valider cette invitation')
+        })
+    }
+  }, [currentUser])
 
   function handleSelectContext(context) {
     setActiveContext(context)
@@ -77,13 +111,59 @@ export default function App() {
 
   async function handleToggleStatus(taskId, nextCompletedState) {
     try {
-      await toggleTaskCompleted(taskId, nextCompletedState)
+      const updated = await toggleTaskCompleted(taskId, nextCompletedState)
       setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: nextCompletedState } : t))
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                ...updated,
+                completed: nextCompletedState,
+                status: nextCompletedState ? 'done' : 'todo',
+              }
+            : t
+        )
       )
-      showToast(nextCompletedState ? 'Tâche terminée ! Bravo 🎉' : 'Tâche réactivée')
+      showToast(
+        nextCompletedState ? 'Tâche terminée ! Bravo 🎉' : 'Tâche réactivée'
+      )
     } catch (error) {
       showToast('Impossible de mettre à jour le statut')
+      console.error(error)
+    }
+  }
+
+  async function handleCycleTaskStatus(task) {
+    const cycle = {
+      todo: 'in_progress',
+      in_progress: 'done',
+      inprogress: 'done',
+      done: 'todo',
+    }
+    const nextStatus = cycle[task.status] || 'todo'
+    try {
+      const updated = await updateTaskStatus(task.id, nextStatus)
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                ...updated,
+                status: nextStatus,
+                completed: nextStatus === 'done',
+              }
+            : t
+        )
+      )
+      const label =
+        nextStatus === 'done'
+          ? 'Terminé'
+          : nextStatus === 'in_progress'
+          ? 'En cours'
+          : 'À faire'
+      showToast(`Statut mis à jour : ${label}`)
+    } catch (error) {
+      showToast('Erreur lors du changement de statut')
       console.error(error)
     }
   }
@@ -92,7 +172,7 @@ export default function App() {
     try {
       const created = await createTask(newTaskData)
       setTasks((prev) => [created, ...prev])
-      showToast('Nouvelle tâche ajoutée à la matrice !')
+      showToast('Nouvelle tâche enregistrée dans la matrice !')
     } catch (error) {
       showToast('Erreur lors de la création de la tâche')
       console.error(error)
@@ -103,23 +183,19 @@ export default function App() {
     try {
       await deleteTask(taskId)
       setTasks((prev) => prev.filter((t) => t.id !== taskId))
-      showToast('Tâche supprimée du quadrant')
+      showToast('Tâche supprimée')
     } catch (error) {
       showToast('Erreur lors de la suppression')
       console.error(error)
     }
   }
 
-  async function handleMoveQuadrant(taskId, newQuadrant) {
+  async function handleShareTask(taskId, email) {
     try {
-      await moveTaskToQuadrant(taskId, newQuadrant)
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, quadrant: newQuadrant } : t))
-      )
-      const labels = { 1: 'Faire', 2: 'Planifier', 3: 'Déléguer', 4: 'Éliminer' }
-      showToast(`Tâche déplacée → ${labels[newQuadrant]}`)
+      await shareTask(taskId, email)
+      showToast('Tâche partagée par email !')
     } catch (error) {
-      showToast('Impossible de déplacer la tâche')
+      showToast('Erreur lors du partage')
       console.error(error)
     }
   }
@@ -266,7 +342,7 @@ export default function App() {
       <Header
         title={
           activeTab === 'partages'
-            ? 'Partages'
+            ? 'Groupes & Invitations'
             : activeTab === 'liste'
             ? 'Liste & Filtres'
             : activeTab === 'compte'
@@ -286,9 +362,19 @@ export default function App() {
 
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-7xl mx-auto px-gutter">
         {activeTab === 'liste' ? (
-          <ListAndFiltersPage onShowToast={showToast} />
+          <ListAndFiltersPage
+            tasks={tasks}
+            onToggleStatus={handleToggleStatus}
+            onCycleStatus={handleCycleTaskStatus}
+            onDeleteTask={handleDeleteTask}
+            onShowToast={showToast}
+          />
         ) : activeTab === 'partages' ? (
-          <SharesPage onShowToast={showToast} />
+          <SharesPage
+            currentUser={currentUser}
+            onNavigateToLogin={() => setActiveTab('compte')}
+            onShowToast={showToast}
+          />
         ) : activeTab === 'compte' ? (
           currentUser ? (
             <ProfilePage
@@ -350,20 +436,6 @@ export default function App() {
                 </span>
                 <span className="text-xs">Chargement de la matrice...</span>
               </div>
-            ) : loadError ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
-                <span className="material-symbols-outlined text-[32px] text-error">
-                  cloud_off
-                </span>
-                <p className="text-sm text-on-surface-variant">{loadError}</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors"
-                >
-                  Réessayer
-                </button>
-              </div>
             ) : (
               <section className="grid grid-cols-1 md:grid-cols-2 gap-space-md w-full">
                 <Quadrant
@@ -376,7 +448,7 @@ export default function App() {
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDeleteTask}
                   onDelegate={handleDelegateTask}
-                  onMoveQuadrant={handleMoveQuadrant}
+                  onShare={handleShareTask}
                 />
 
                 {!isFocusFaireOnly && (

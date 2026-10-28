@@ -1,3 +1,26 @@
+/**
+ * ProductivityBanner.jsx
+ * Bannière synthétique de charge mentale et de productivité.
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Signale visuellement les tâches prioritaires devant être traitées dans la journée
+ * - Affiche une alerte stylisée avec icône 'priority_high'
+ * - Affiche le badge de rythme (ex. "Rythme soutenu")
+ * 
+ * NOTE API BACKEND :
+ * - Les données de cette bannière proviennent du calcul métier du domaine Task
+ *   ou d'un endpoint dédié d'intelligence de planning :
+ *   -> GET /api/tasks/insights
+ *   Exemple de réponse JSON :
+ *   {
+ *     criticalCount: 3,
+ *     deadlineLimit: "18h",
+ *     tempoState: "Rythme soutenu"
+ *   }
+ * --------------------------------------------------------------------------
+ */
+
 export default function ProductivityBanner({
   criticalCount = 3,
   deadlineLimit = '18h',

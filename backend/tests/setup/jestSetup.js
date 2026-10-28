@@ -1,5 +1,6 @@
 // Variables d'environnement partagées par toutes les suites de test.
-// env.js saute dotenv.config() quand NODE_ENV=test (Jest le définit automatiquement).
+// Forcer NODE_ENV="test" même dans le conteneur Docker où NODE_ENV="development" est défini.
+process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 process.env.MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/taskflow_test";
 process.env.BCRYPT_ROUNDS = "4"; // 12 rounds en prod, 4 en test (~256x plus rapide)

@@ -1,5 +1,7 @@
 const RAW_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
-const API_BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE.replace(/\/$/, "")}/api`;
+const API_BASE = RAW_BASE.endsWith("/api")
+  ? RAW_BASE
+  : `${RAW_BASE.replace(/\/$/, "")}/api`;
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("taskflow_token");
@@ -29,7 +31,9 @@ async function request(path, options = {}) {
     }
     const body = await res.json().catch(() => ({}));
     const errorMessage =
-      (body.error && typeof body.error === "string" ? body.error : body.error?.message) ||
+      (body.error && typeof body.error === "string"
+        ? body.error
+        : body.error?.message) ||
       body.message ||
       `Erreur HTTP ${res.status}`;
     const err = new Error(errorMessage);

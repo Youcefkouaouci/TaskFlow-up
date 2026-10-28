@@ -1,3 +1,30 @@
+/**
+ * ============================================================================
+ * TaskFlow - Page Inscription (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Création de compte alternant / étudiant conforme à la charte monochrome
+ * TaskFlow et aux exigences WCAG AAA (cibles min 44px, focus outline 2px, contraste 13:1).
+ * 
+ * FONCTIONNALITÉS FRONTEND :
+ * 1. Formulaire d'inscription structuré (Nom complet, Email, Profil alternance, Mot de passe, Confirmation).
+ * 2. Sélection interactive du profil d'alternance (Alternant, Étudiant, Professionnel).
+ * 3. Validation dynamique des champs à la saisie et à la soumission :
+ *    - Nom minimum 2 caractères.
+ *    - Email valide avec détection des doublons (Erreur 409).
+ *    - Mot de passe 8 caractères minimum.
+ *    - Concordance stricte entre mot de passe et confirmation.
+ *    - Acceptation obligatoire des conditions d'utilisation.
+ * 4. Toggle Show/Hide Password indépendant pour le mot de passe et sa confirmation.
+ * 5. Bannières d'alerte contextuelles en cas de conflit d'email ou de rejet API.
+ * 6. Gestion fluide du chargement avec indicateur vectoriel (Spinner SVG).
+ * 7. Lien direct vers la page de connexion ("Déjà un compte ? Se connecter").
+ * 
+ * SPÉCIFICATIONS DES ENDPOINTS API BACKEND :
+ * -> POST /api/auth/register (Création de compte et génération du token JWT)
+ * -> GET /api/auth/check-email?email=... (Vérification préalable de disponibilité)
+ * ============================================================================
+ */
+
 import { useState } from 'react'
 import { registerUser } from '../services/authService'
 
@@ -24,6 +51,15 @@ export default function RegisterPage({
   const [globalError, setGlobalError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
 
+  // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ 1 : Soumission et validation de l'inscription
+  // ENDPOINT CIBLE : POST /api/auth/register
+  // PAYLOAD : { name, email, role, password }
+  // CODES HTTP ATTENDUS :
+  // - 201 Created : { token: "jwt_...", user: { id, email, name, role } }
+  // - 409 Conflict : { error: "Cette adresse email est déjà associée à un compte." }
+  // - 422 Unprocessable Entity : { errors: { email: "...", password: "..." } }
+  // --------------------------------------------------------------------------
   async function handleSubmit(e) {
     if (e) e.preventDefault()
 
@@ -84,9 +120,12 @@ export default function RegisterPage({
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111111] p-4 sm:p-6 lg:p-12 font-sans antialiased flex flex-col items-center justify-center">
+      {/* 1. Carte Inscription Principale */}
       <div className="w-full max-w-[440px] bg-white border border-[#E8E8E8] rounded-2xl p-7 sm:p-8 shadow-xs">
+        {/* Logo & Tagline */}
         <div className="text-center mb-7">
           <div className="inline-flex items-center gap-2.5 mb-2">
+            {/* Grille 2x2 Logo TaskFlow */}
             <svg
               width="22"
               height="22"
@@ -146,6 +185,7 @@ export default function RegisterPage({
           </p>
         </div>
 
+        {/* Titre et sous-titre */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#111111] tracking-tight">
             Créer un compte
@@ -155,6 +195,7 @@ export default function RegisterPage({
           </p>
         </div>
 
+        {/* Bannière d'erreur globale */}
         {globalError && (
           <div className="mb-5 p-3 bg-[#FFF0F0] border border-[#E5484D] rounded-lg flex items-start gap-2.5 text-xs text-[#E5484D] animate-fadeIn">
             <svg
@@ -174,7 +215,10 @@ export default function RegisterPage({
           </div>
         )}
 
+        {/* Formulaire d'inscription */}
+        {/* ENDPOINT : POST /api/auth/register */}
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+          {/* Champ Nom complet */}
           <div>
             <label
               htmlFor="reg-name"
@@ -210,6 +254,7 @@ export default function RegisterPage({
             )}
           </div>
 
+          {/* Champ Email */}
           <div>
             <label
               htmlFor="reg-email"
@@ -245,6 +290,7 @@ export default function RegisterPage({
             )}
           </div>
 
+          {/* Sélecteur de profil / statut */}
           <div>
             <label className="block text-xs font-semibold text-[#111111] mb-1.5">
               Votre situation
@@ -270,6 +316,7 @@ export default function RegisterPage({
             </div>
           </div>
 
+          {/* Champ Mot de passe */}
           <div>
             <label
               htmlFor="reg-password"
@@ -345,6 +392,7 @@ export default function RegisterPage({
             )}
           </div>
 
+          {/* Champ Confirmation du mot de passe */}
           <div>
             <label
               htmlFor="reg-confirm-password"
@@ -420,6 +468,7 @@ export default function RegisterPage({
             )}
           </div>
 
+          {/* Case à cocher des conditions */}
           <div className="pt-1">
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
@@ -448,6 +497,7 @@ export default function RegisterPage({
             )}
           </div>
 
+          {/* Bouton CTA Inscription */}
           <div className="pt-2">
             <button
               type="submit"
@@ -502,6 +552,7 @@ export default function RegisterPage({
           </div>
         </form>
 
+        {/* Lien vers Connexion */}
         <div className="mt-6 pt-5 border-t border-[#E8E8E8] text-center">
           <p className="text-xs text-[#6B6B6B]">
             Déjà un compte ?{' '}
@@ -516,6 +567,7 @@ export default function RegisterPage({
         </div>
       </div>
 
+      {/* Note accessibilité sous la carte */}
       <div className="mt-6 text-center text-xs text-[#6B6B6B] flex items-center justify-center flex-wrap gap-3">
         <span className="inline-flex items-center gap-1">
           <svg

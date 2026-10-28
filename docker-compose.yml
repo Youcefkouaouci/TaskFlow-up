@@ -10,6 +10,7 @@ services:
       - MONGO_INITDB_DATABASE=${MONGO_DB_NAME:-taskflow}
     volumes:
       - mongo-data:/data/db
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
     networks:
       - taskflow-network
     healthcheck:
@@ -33,6 +34,16 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/${MONGO_DB_NAME:-taskflow}
       - JWT_SECRET=${JWT_SECRET:-dev-super-secret-key-taskflow-2026}
       - NODE_ENV=development
+      - APP_NAME=${APP_NAME:-TaskFlow}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - MAIL_MAILER=${MAIL_MAILER:-smtp}
+      - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-465}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-ssl}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-TaskFlow}
     volumes:
       - ./backend:/app
       - /app/node_modules

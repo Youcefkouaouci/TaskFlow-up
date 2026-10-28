@@ -1,3 +1,20 @@
+/**
+ * ============================================================================
+ * TaskFlow - Page Profil / Compte Connecté (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Affichée lorsque l'utilisateur possède déjà une session active (token JWT).
+ * Évite d'afficher les formulaires de connexion / inscription et propose
+ * la déconnexion ainsi que l'accès rapide aux modules de travail.
+ * 
+ * FONCTIONNALITÉS FRONTEND :
+ * 1. Notification de session active ("Vous êtes déjà connecté").
+ * 2. Carte d'identité alternant (Nom, Email, Rôle, identifiant).
+ * 3. Indicateur de synchronisation serveur en temps réel (MongoDB / JWT).
+ * 4. Boutons d'accès direct vers la Matrice d'Eisenhower et les Partages.
+ * 5. Action de déconnexion sécurisée ("Se déconnecter") avec confirmation.
+ * ============================================================================
+ */
+
 import { useState } from 'react'
 
 export default function ProfilePage({
@@ -31,6 +48,7 @@ export default function ProfilePage({
 
   return (
     <div className="flex flex-col w-full pb-28 max-w-xl mx-auto px-gutter pt-space-md gap-space-lg font-sans antialiased">
+      {/* 1. En-tête contextuel */}
       <div className="flex flex-col gap-space-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-space-xs">
@@ -49,6 +67,7 @@ export default function ProfilePage({
         </p>
       </div>
 
+      {/* 2. Bannière "Vous êtes déjà connecté" */}
       <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-xs text-emerald-900 shadow-2xs">
         <span className="material-symbols-outlined text-emerald-600 text-[20px] shrink-0">
           verified
@@ -61,8 +80,10 @@ export default function ProfilePage({
         </div>
       </div>
 
+      {/* 3. Carte de Profil Utilisateur */}
       <section className="bg-surface-container-lowest rounded-2xl shadow-xs p-6 flex flex-col gap-5 border border-outline-variant/15">
         <div className="flex items-center gap-4">
+          {/* Avatar avec initiales */}
           <div className="w-14 h-14 rounded-2xl bg-[#111111] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
             {initials || 'TF'}
           </div>
@@ -85,6 +106,7 @@ export default function ProfilePage({
           </div>
         </div>
 
+        {/* Détails techniques de la session */}
         <div className="border-t border-outline-variant/10 pt-4 grid grid-cols-2 gap-3 text-xs">
           <div className="flex flex-col bg-surface-container-low p-2.5 rounded-xl">
             <span className="text-[11px] text-outline font-medium">Environnement</span>
@@ -97,6 +119,7 @@ export default function ProfilePage({
         </div>
       </section>
 
+      {/* 4. Actions rapides vers le travail */}
       <section className="flex flex-col gap-2">
         <span className="text-xs font-bold text-outline uppercase tracking-wider px-1">
           Navigation Rapide
@@ -135,6 +158,7 @@ export default function ProfilePage({
         </button>
       </section>
 
+      {/* 5. Zone de déconnexion */}
       <section className="flex flex-col gap-3 pt-2">
         <button
           type="button"

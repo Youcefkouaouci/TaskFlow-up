@@ -5,7 +5,10 @@ const express = require("express");
 
 const healthRouter = require("./interfaces/http/routes/healthRouter");
 const authRoutes = require("./interfaces/http/routes/auth");
-const tasksRoutes = require("./interfaces/http/routes/tasks");
+const groupRouter = require("./interfaces/http/routes/groupRouter");
+const projectRouter = require("./interfaces/http/routes/projectRouter");
+const invitationRouter = require("./interfaces/http/routes/invitationRouter");
+const taskRouter = require("./interfaces/http/routes/taskRouter");
 const errorHandler = require("./interfaces/http/middlewares/errorHandler");
 
 const app = express();
@@ -15,7 +18,10 @@ app.use(express.json());
 
 app.use("/api", healthRouter);
 app.use("/api/auth", authRoutes);
-app.use("/api/tasks", tasksRoutes);
+app.use("/api/groups", groupRouter);
+app.use("/api/projects", projectRouter);
+app.use("/api/invitations", invitationRouter);
+app.use("/api/tasks", taskRouter);
 
 app.use(errorHandler);
 

@@ -1,3 +1,28 @@
+/**
+ * NewTaskModal.jsx
+ * Boîte de dialogue modale pour la création rapide d'une tâche.
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Overlay avec flou d'arrière-plan (backdrop-blur)
+ * - Saisie contrôlée du titre de l'action avec autofocus
+ * - Sélection du quadrant cible dans la matrice (1 Faire, 2 Planifier, 3 Déléguer, 4 Éliminer)
+ * - Sélection du contexte de rattachement (Entreprise, École, Personnel)
+ * - Validation du champ titre (empêche la saisie vide)
+ * 
+ * NOTE API BACKEND :
+ * - Création d'une tâche via :
+ *   -> POST /api/tasks
+ *   Body envoyé :
+ *   {
+ *     title: string,
+ *     quadrant: number (1-4),
+ *     context: string,
+ *     tag: string
+ *   }
+ * --------------------------------------------------------------------------
+ */
+
 import { useState } from 'react'
 
 export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
@@ -36,6 +61,7 @@ export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
         className="w-full max-w-md bg-surface-container-lowest rounded-xl p-5 flex flex-col gap-4 shadow-xl border border-outline-variant/20 animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* En-tête de la modale */}
         <div className="flex items-center justify-between pb-2 border-b border-outline-variant/10">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary text-[22px]">
@@ -53,7 +79,10 @@ export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
           </button>
         </div>
 
+        {/* Formulaire de création */}
+        {/* ENDPOINT : POST /api/tasks */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+          {/* Champ Titre */}
           <label className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-on-surface-variant">
               Titre de l'action *
@@ -69,7 +98,9 @@ export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
             />
           </label>
 
+          {/* Grille Quadrant & Contexte */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Sélection Quadrant */}
             <label className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-on-surface-variant">
                 Quadrant cible
@@ -86,6 +117,7 @@ export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
               </select>
             </label>
 
+            {/* Sélection Contexte */}
             <label className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-on-surface-variant">
                 Contexte
@@ -102,6 +134,7 @@ export default function NewTaskModal({ isOpen, onClose, onCreateTask }) {
             </label>
           </div>
 
+          {/* Actions Annuler / Enregistrer */}
           <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/10">
             <button
               type="button"

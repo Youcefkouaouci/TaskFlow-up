@@ -1,3 +1,26 @@
+/**
+ * ============================================================================
+ * TaskFlow - Page Connexion (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Conforme à la charte monochrome stricte et aux critères d'accessibilité WCAG AAA
+ * (cibles tactiles min 44px, contour focus visible 2px, contraste texte 13:1).
+ * 
+ * FONCTIONNALITÉS FRONTEND :
+ * 1. Formulaire de connexion sécurisé (Email & Mot de passe).
+ * 2. Validation dynamique à la soumission et lors de la saisie avec retours visuels précis.
+ * 3. Toggle Show/Hide Password avec retour visuel vectoriel accessible.
+ * 4. Bannière contextuelle d'alerte en cas d'identifiants incorrects (Erreur 401).
+ * 5. Gestion de l'état de chargement asynchrone (Spinner SVG, bouton désactivé, curseur wait).
+ * 6. Navigation fluide vers la page d'inscription ("Créer un compte").
+ * 7. Action "Mot de passe oublié ?" avec notification immédiate.
+ * 
+ * SPÉCIFICATIONS DES ENDPOINTS API BACKEND :
+ * -> POST /api/auth/login (Authentification JWT par identifiants)
+ * -> POST /api/auth/forgot-password (Demande de réinitialisation)
+ * -> GET /api/auth/me (Vérification de session & profil actif)
+ * ============================================================================
+ */
+
 import { useState } from 'react'
 import { loginUser, forgotPassword } from '../services/authService'
 
@@ -8,17 +31,27 @@ export default function LoginPage({
   onShowToast,
   isSessionExpired = false,
 }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('lucas.martin@master-gestion.fr')
+  const [password, setPassword] = useState('alternance2026!')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [globalError, setGlobalError] = useState(null)
   const [sessionExpired, setSessionExpired] = useState(isSessionExpired)
   const [fieldErrors, setFieldErrors] = useState({ email: null, password: null })
 
+  // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ 1 : Soumission du formulaire de connexion
+  // ENDPOINT CIBLE : POST /api/auth/login
+  // PAYLOAD : { email: string, password: string }
+  // CODES HTTP ATTENDUS :
+  // - 200 OK : { token: "jwt_...", user: { id, email, name, role } }
+  // - 401 Unauthorized : { error: "Email ou mot de passe incorrect." }
+  // - 422 Unprocessable Entity : { errors: { email: "...", password: "..." } }
+  // --------------------------------------------------------------------------
   async function handleSubmit(e) {
     if (e) e.preventDefault()
 
+    // Validation préalable côté client
     const errors = { email: null, password: null }
     if (!email || !email.includes('@')) {
       errors.email = 'Adresse email valide requise'
@@ -52,6 +85,11 @@ export default function LoginPage({
     }
   }
 
+  // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ 2 : Demande de réinitialisation de mot de passe
+  // ENDPOINT CIBLE : POST /api/auth/forgot-password
+  // PAYLOAD : { email: string }
+  // --------------------------------------------------------------------------
   async function handleForgotPassword(e) {
     e.preventDefault()
     if (onNavigateToForgotPassword) {
@@ -75,9 +113,12 @@ export default function LoginPage({
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111111] p-4 sm:p-6 lg:p-12 font-sans antialiased flex flex-col items-center justify-center">
+      {/* 1. Carte Connexion Principale */}
       <div className="w-full max-w-[400px] bg-white border border-[#E8E8E8] rounded-2xl p-7 sm:p-8 shadow-xs">
+        {/* Logo & Tagline */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2.5 mb-2">
+            {/* Grille 2x2 Logo TaskFlow */}
             <svg
               width="22"
               height="22"
@@ -137,6 +178,7 @@ export default function LoginPage({
           </p>
         </div>
 
+        {/* Titre et sous-titre */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#111111] tracking-tight">
             Connexion
@@ -146,6 +188,7 @@ export default function LoginPage({
           </p>
         </div>
 
+        {/* Bannière d'erreur d'identifiants (401) */}
         {globalError && (
           <div className="mb-5 p-3 bg-[#FFF0F0] border border-[#E5484D] rounded-lg flex items-start gap-2.5 text-xs text-[#E5484D]">
             <svg
@@ -165,6 +208,7 @@ export default function LoginPage({
           </div>
         )}
 
+        {/* Bannière Session expirée (403) */}
         {sessionExpired && (
           <div className="mb-5 p-3 bg-[#F5F5F5] border border-[#111111] rounded-lg flex items-start gap-2.5 text-xs text-[#111111]">
             <svg
@@ -186,7 +230,10 @@ export default function LoginPage({
           </div>
         )}
 
+        {/* Formulaire de connexion sécurisé */}
+        {/* ENDPOINT : POST /api/auth/login */}
         <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+          {/* Champ Email */}
           <div>
             <label
               htmlFor="login-email"
@@ -218,6 +265,7 @@ export default function LoginPage({
               />
             </div>
 
+            {/* Erreur de validation sous le champ email */}
             {fieldErrors.email && (
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[#E5484D] font-medium">
                 <svg
@@ -240,6 +288,7 @@ export default function LoginPage({
             )}
           </div>
 
+          {/* Champ Mot de passe */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label
@@ -318,6 +367,7 @@ export default function LoginPage({
               </button>
             </div>
 
+            {/* Erreur de validation sous le champ mot de passe */}
             {fieldErrors.password && (
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[#E5484D] font-medium">
                 <svg
@@ -340,6 +390,7 @@ export default function LoginPage({
             )}
           </div>
 
+          {/* Bouton CTA principal full width */}
           <div className="pt-2">
             <button
               type="submit"
@@ -394,6 +445,7 @@ export default function LoginPage({
           </div>
         </form>
 
+        {/* Lien de redirection vers l'inscription */}
         <div className="mt-6 pt-5 border-t border-[#E8E8E8] text-center">
           <p className="text-xs text-[#6B6B6B]">
             Pas encore de compte ?{' '}
@@ -408,6 +460,7 @@ export default function LoginPage({
         </div>
       </div>
 
+      {/* Note accessibilité sous la carte */}
       <div className="mt-6 text-center text-xs text-[#6B6B6B] flex items-center justify-center flex-wrap gap-3">
         <span className="inline-flex items-center gap-1">
           <svg

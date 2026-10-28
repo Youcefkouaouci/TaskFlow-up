@@ -1,135 +1,98 @@
 "use strict";
 
-const { Task } = require("../../../domain/task/Task");
-const taskRepository = require("../../../infrastructure/persistence/task/TaskRepository");
-const {
-  ValidationException,
-  NotFoundException,
-} = require("../../../domain/errors");
+const taskUseCases = require("../../../application/task/TaskUseCases");
+const emailService = require("../../../infrastructure/email/EmailService");
+const { ValidationException } = require("../../../domain/errors");
 
-const ALLOWED = new Set([
-  "title",
-  "description",
-  "urgent",
-  "important",
-  "status",
-  "dueDate",
-]);
-
-function assertValidBody(body, allowEmpty = false) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ValidationException("Invalid task body");
-  }
-
-  if (!allowEmpty && Object.keys(body).length === 0) {
-    throw new ValidationException("Request body must contain at least one field");
-  }
-
-  const unknown = Object.keys(body).filter((key) => !ALLOWED.has(key));
-  if (unknown.length > 0) {
-    throw new ValidationException(
-      `Unknown or forbidden fields: ${unknown.join(", ")}`,
-    );
-  }
-}
-
-async function getOwnedTask(id, ownerId) {
-  const task = await taskRepository.findById(id);
-
-  if (task.ownerId !== ownerId) {
-    throw new NotFoundException("Task not found");
-  }
-
-  return task;
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function create(req, res, next) {
   try {
-    const body = req.body ?? {};
-    assertValidBody(body, true);
-
-    const task = new Task({
-      title: body.title,
-      description: body.description,
-      urgent: body.urgent,
-      important: body.important,
-      status: body.status,
-      dueDate: body.dueDate ?? null,
-      ownerId: req.user.id,
-    });
-
-    const saved = await taskRepository.create({
-      title: task.title,
-      description: task.description,
-      urgent: task.urgent,
-      important: task.important,
-      status: task.status,
-      dueDate: task.dueDate,
-      ownerId: req.user.id,
-    });
-
-    return res.status(201).json(saved.toJSON());
+    const ownerId = req.user.id;
+    const task = await taskUseCases.createTask(ownerId, req.body);
+    return res.status(201).json(task);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 
 async function list(req, res, next) {
   try {
-    const tasks = await taskRepository.findByOwner(req.user.id);
-    return res.status(200).json({ items: tasks.map((task) => task.toJSON()) });
+    const ownerId = req.user.id;
+    const tasks = await taskUseCases.listTasks(ownerId, req.query);
+    return res.status(200).json(tasks);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 
-async function getOne(req, res, next) {
+async function getById(req, res, next) {
   try {
-    const task = await getOwnedTask(req.params.id, req.user.id);
-    return res.status(200).json(task.toJSON());
+    const ownerId = req.user.id;
+    const task = await taskUseCases.getTaskById(ownerId, req.params.id);
+    return res.status(200).json(task);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 
 async function update(req, res, next) {
   try {
-    const body = req.body ?? {};
-    assertValidBody(body);
-
-    const existing = await getOwnedTask(req.params.id, req.user.id);
-    const merged = new Task({
-      id: existing.id,
-      title: body.title ?? existing.title,
-      description: body.description ?? existing.description,
-      urgent: body.urgent ?? existing.urgent,
-      important: body.important ?? existing.important,
-      status: body.status ?? existing.status,
-      dueDate: body.dueDate === undefined ? existing.dueDate : body.dueDate,
-      ownerId: existing.ownerId,
-      createdAt: existing.createdAt,
-    });
-
-    const updates = {};
-    for (const key of Object.keys(body)) {
-      updates[key] = merged[key];
-    }
-
-    const updated = await taskRepository.update(req.params.id, updates);
-    return res.status(200).json(updated.toJSON());
+    const ownerId = req.user.id;
+    const task = await taskUseCases.updateTask(ownerId, req.params.id, req.body);
+    return res.status(200).json(task);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 
-async function remove(req, res, next) {
+async function updateStatus(req, res, next) {
   try {
-    await getOwnedTask(req.params.id, req.user.id);
-    await taskRepository.deleteById(req.params.id);
+    const ownerId = req.user.id;
+    const task = await taskUseCases.updateTask(ownerId, req.params.id, req.body);
+    return res.status(200).json(task);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteTask(req, res, next) {
+  try {
+    const ownerId = req.user.id;
+    await taskUseCases.deleteTask(ownerId, req.params.id);
     return res.status(204).send();
   } catch (err) {
+    next(err);
+  }
+}
+
+async function share(req, res, next) {
+  try {
+    const email = req.body?.email;
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      throw new ValidationException("email is required");
+    }
+    if (!EMAIL_RE.test(email.trim())) {
+      throw new ValidationException("email format is invalid");
+    }
+
+    const ownerId = req.user.id;
+    const task = await taskUseCases.getTaskById(ownerId, req.params.id);
+    await emailService.sendTaskShareEmail({ to: email.trim(), task });
+
+    return res.status(200).json({ shared: true, to: email.trim() });
+  } catch (err) {
     return next(err);
   }
 }
 
-module.exports = { create, list, getOne, update, remove };
+module.exports = {
+  create,
+  list,
+  getById,
+  update,
+  updateStatus,
+  deleteTask,
+  share,
+};

@@ -1,3 +1,19 @@
+/**
+ * MatrixSummary.jsx
+ * Barre de synthèse globale de la matrice et indicateur de charge mentale.
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Synthétise le nombre total de tâches actives et de tâches critiques (Quadrant Faire)
+ * - Propose le bouton d'isolation "Focus Faire seul" pour filtrer uniquement le premier quadrant
+ * - Indique la prochaine échéance de la journée
+ * 
+ * NOTE API BACKEND :
+ * - Données statistiques calculées ou récupérées via :
+ *   -> GET /api/users/me/stats
+ * --------------------------------------------------------------------------
+ */
+
 export default function MatrixSummary({
   totalActiveCount = 9,
   criticalCount = 3,
@@ -7,6 +23,7 @@ export default function MatrixSummary({
 }) {
   return (
     <footer className="mt-space-md flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-surface-container-low rounded-lg border border-outline-variant/15">
+      {/* Indicateur et texte de charge */}
       <div className="flex items-center gap-3 w-full sm:w-auto">
         <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface flex-shrink-0">
           <span className="material-symbols-outlined text-[18px]">analytics</span>
@@ -19,6 +36,7 @@ export default function MatrixSummary({
         </div>
       </div>
 
+      {/* Bouton de bascule Mode Focus */}
       <div className="flex items-center gap-2 self-end sm:self-center">
         <button
           type="button"
