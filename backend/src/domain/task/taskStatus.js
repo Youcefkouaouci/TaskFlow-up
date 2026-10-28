@@ -9,6 +9,13 @@ const STATUS_ALIASES = {
   inprogress: "in_progress",
 };
 
+const VALID_QUADRANTS = ["DO", "PLAN", "DELEGATE", "ELIMINATE"];
+
+const STATUS_ALIASES = {
+  doing: "in_progress",
+  inprogress: "in_progress",
+};
+
 const PRIORITY_MAP = {
   "true-true": "critical",
   "false-true": "schedule",

@@ -165,6 +165,7 @@ class EmailService {
       return { sent: false, simulated: true, error: err.message, inviteUrl };
     }
   }
+
   async sendTaskShareEmail({ to, task }) {
     const { subject, html } = buildTaskShareEmail(to, task);
     const record = { to, taskId: task.id, subject, html, sentAt: new Date() };

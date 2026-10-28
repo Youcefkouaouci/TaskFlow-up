@@ -38,6 +38,9 @@ async function register(request, response) {
   return response.status(201).json({
     user: { id: user._id.toString(), email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     token,
+    userId: user._id,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
   });
 }
 
@@ -74,6 +77,9 @@ async function login(request, response) {
   return response.status(200).json({
     user: { id: user._id.toString(), email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     token,
+    userId: user._id,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
   });
 }
 

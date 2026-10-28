@@ -35,6 +35,7 @@ export async function loginUser(credentials) {
   };
 
   if (data.token) {
+    localStorage.setItem("token", data.token);
     localStorage.setItem("taskflow_token", data.token);
     localStorage.setItem("taskflow_user", JSON.stringify(user));
   }
