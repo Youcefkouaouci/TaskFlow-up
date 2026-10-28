@@ -14,6 +14,7 @@ const taskSchema = new Schema(
       enum: VALID_STATUSES,
       default: "todo",
     },
+    dueDate: { type: String, default: null },
     ownerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },

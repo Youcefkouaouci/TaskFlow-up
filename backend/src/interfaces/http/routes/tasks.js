@@ -1,24 +1,23 @@
-
 "use strict";
 
-const express = require("express");
+const { Router } = require("express");
 const authenticate = require("../middlewares/authenticate");
 const {
-  listTasks,
-  getTask,
-  createTask,
-  updateTask,
-  deleteTask,
+  create,
+  list,
+  getOne,
+  update,
+  remove,
 } = require("../controllers/taskController");
 
-const router = express.Router();
+const router = Router();
 
 router.use(authenticate);
 
-router.get("/", listTasks);
-router.post("/", createTask);
-router.get("/:id", getTask);
-router.patch("/:id", updateTask);
-router.delete("/:id", deleteTask);
+router.post("/", create);
+router.get("/", list);
+router.get("/:id", getOne);
+router.patch("/:id", update);
+router.delete("/:id", remove);
 
 module.exports = router;

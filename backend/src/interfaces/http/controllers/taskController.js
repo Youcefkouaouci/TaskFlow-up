@@ -1,185 +1,135 @@
-
 "use strict";
 
-const mongoose = require("mongoose");
-const Task = require("../../../infrastructure/persistence/task/TaskSchema");
-const { validateTask } = require("../../../domain/task/validateTask");
+const { Task } = require("../../../domain/task/Task");
+const taskRepository = require("../../../infrastructure/persistence/task/TaskRepository");
 const {
   ValidationException,
   NotFoundException,
 } = require("../../../domain/errors");
 
-const ALLOWED_FIELDS = [
+const ALLOWED = new Set([
   "title",
   "description",
   "urgent",
   "important",
   "status",
-];
+  "dueDate",
+]);
 
-async function listTasks(request, response, next) {
-  try {
-    const tasks = await Task.find({ ownerId: request.user.id });
-    return response.status(200).json(tasks);
-  } catch (error) {
-    return next(error);
+function assertValidBody(body, allowEmpty = false) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new ValidationException("Invalid task body");
+  }
+
+  if (!allowEmpty && Object.keys(body).length === 0) {
+    throw new ValidationException("Request body must contain at least one field");
+  }
+
+  const unknown = Object.keys(body).filter((key) => !ALLOWED.has(key));
+  if (unknown.length > 0) {
+    throw new ValidationException(
+      `Unknown or forbidden fields: ${unknown.join(", ")}`,
+    );
   }
 }
 
-async function getTask(request, response, next) {
-  try {
-    if (!mongoose.isValidObjectId(request.params.id)) {
-      throw new ValidationException("Identifiant de tâche invalide");
-    }
+async function getOwnedTask(id, ownerId) {
+  const task = await taskRepository.findById(id);
 
-    const task = await Task.findOne({
-      _id: request.params.id,
-      ownerId: request.user.id,
+  if (task.ownerId !== ownerId) {
+    throw new NotFoundException("Task not found");
+  }
+
+  return task;
+}
+
+async function create(req, res, next) {
+  try {
+    const body = req.body ?? {};
+    assertValidBody(body, true);
+
+    const task = new Task({
+      title: body.title,
+      description: body.description,
+      urgent: body.urgent,
+      important: body.important,
+      status: body.status,
+      dueDate: body.dueDate ?? null,
+      ownerId: req.user.id,
     });
 
-    if (!task) {
-      throw new NotFoundException("Tâche introuvable");
-    }
-
-    return response.status(200).json(task);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-async function createTask(request, response, next) {
-  try {
-    const data = request.body;
-
-    if (
-      !data ||
-      typeof data !== "object" ||
-      Array.isArray(data) ||
-      Object.keys(data).some((key) => !ALLOWED_FIELDS.includes(key))
-    ) {
-      throw new ValidationException("Champs de tâche invalides");
-    }
-
-    const errors = validateTask(data);
-    if (errors.length > 0) {
-      throw new ValidationException(errors.join(" "));
-    }
-
-    if (typeof data.urgent !== "boolean" ||
-        typeof data.important !== "boolean") {
-      throw new ValidationException(
-        "Les champs urgent et important doivent être des booléens",
-      );
-    }
-
-    const task = await Task.create({
-      title: data.title.trim(),
-      description: data.description ?? "",
-      urgent: data.urgent,
-      important: data.important,
-      status: data.status,
-      ownerId: request.user.id,
+    const saved = await taskRepository.create({
+      title: task.title,
+      description: task.description,
+      urgent: task.urgent,
+      important: task.important,
+      status: task.status,
+      dueDate: task.dueDate,
+      ownerId: req.user.id,
     });
 
-    return response.status(201).json(task);
-  } catch (error) {
-    return next(error);
+    return res.status(201).json(saved.toJSON());
+  } catch (err) {
+    return next(err);
   }
 }
 
-async function updateTask(request, response, next) {
+async function list(req, res, next) {
   try {
-    if (!mongoose.isValidObjectId(request.params.id)) {
-      throw new ValidationException("Identifiant de tâche invalide");
-    }
+    const tasks = await taskRepository.findByOwner(req.user.id);
+    return res.status(200).json({ items: tasks.map((task) => task.toJSON()) });
+  } catch (err) {
+    return next(err);
+  }
+}
 
-    const data = request.body;
+async function getOne(req, res, next) {
+  try {
+    const task = await getOwnedTask(req.params.id, req.user.id);
+    return res.status(200).json(task.toJSON());
+  } catch (err) {
+    return next(err);
+  }
+}
 
-    if (
-      !data ||
-      typeof data !== "object" ||
-      Array.isArray(data) ||
-      Object.keys(data).length === 0 ||
-      Object.keys(data).some((key) => !ALLOWED_FIELDS.includes(key))
-    ) {
-      throw new ValidationException("Modification de tâche invalide");
-    }
+async function update(req, res, next) {
+  try {
+    const body = req.body ?? {};
+    assertValidBody(body);
 
-    const task = await Task.findOne({
-      _id: request.params.id,
-      ownerId: request.user.id,
+    const existing = await getOwnedTask(req.params.id, req.user.id);
+    const merged = new Task({
+      id: existing.id,
+      title: body.title ?? existing.title,
+      description: body.description ?? existing.description,
+      urgent: body.urgent ?? existing.urgent,
+      important: body.important ?? existing.important,
+      status: body.status ?? existing.status,
+      dueDate: body.dueDate === undefined ? existing.dueDate : body.dueDate,
+      ownerId: existing.ownerId,
+      createdAt: existing.createdAt,
     });
 
-    if (!task) {
-      throw new NotFoundException("Tâche introuvable");
+    const updates = {};
+    for (const key of Object.keys(body)) {
+      updates[key] = merged[key];
     }
 
-    const updatedData = {
-      title: data.title ?? task.title,
-      description: data.description ?? task.description,
-      urgent: data.urgent ?? task.urgent,
-      important: data.important ?? task.important,
-      status: data.status ?? task.status,
-    };
-
-    if (
-      data.description === null ||
-      data.urgent === null ||
-      data.important === null ||
-      data.status === null ||
-      data.title === null
-    ) {
-      throw new ValidationException("Valeur de modification invalide");
-    }
-
-    const errors = validateTask(updatedData);
-    if (errors.length > 0) {
-      throw new ValidationException(errors.join(" "));
-    }
-
-    if (
-      typeof updatedData.urgent !== "boolean" ||
-      typeof updatedData.important !== "boolean"
-    ) {
-      throw new ValidationException(
-        "Les champs urgent et important doivent être des booléens",
-      );
-    }
-
-    Object.assign(task, updatedData);
-    await task.save();
-
-    return response.status(200).json(task);
-  } catch (error) {
-    return next(error);
+    const updated = await taskRepository.update(req.params.id, updates);
+    return res.status(200).json(updated.toJSON());
+  } catch (err) {
+    return next(err);
   }
 }
 
-async function deleteTask(request, response, next) {
+async function remove(req, res, next) {
   try {
-    if (!mongoose.isValidObjectId(request.params.id)) {
-      throw new ValidationException("Identifiant de tâche invalide");
-    }
-
-    const task = await Task.findOneAndDelete({
-      _id: request.params.id,
-      ownerId: request.user.id,
-    });
-
-    if (!task) {
-      throw new NotFoundException("Tâche introuvable");
-    }
-
-    return response.status(204).send();
-  } catch (error) {
-    return next(error);
+    await getOwnedTask(req.params.id, req.user.id);
+    await taskRepository.deleteById(req.params.id);
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
   }
 }
 
-module.exports = {
-  listTasks,
-  getTask,
-  createTask,
-  updateTask,
-  deleteTask,
-};
+module.exports = { create, list, getOne, update, remove };

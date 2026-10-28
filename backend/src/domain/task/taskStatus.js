@@ -1,6 +1,6 @@
 "use strict";
 
-const VALID_STATUSES = ["todo", "in_progress", "done"];
+const VALID_STATUSES = ["todo", "doing", "done"];
 
 const PRIORITY_MAP = {
   "true-true": "critical",
