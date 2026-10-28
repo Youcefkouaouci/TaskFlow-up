@@ -1,137 +1,50 @@
 import { useState, useMemo } from 'react'
 
-const INITIAL_OVERDUE_TASK = {
-  id: 'task-overdue-1',
-  title: 'Rapport hebdomadaire activité entreprise',
-  quadrant: 1,
-  context: 'Entreprise',
-  tag: 'Entreprise',
-  deadline: 'Hier à 18:00',
-  tutorNote: 'Tuteur en attente',
-  completed: false,
-  status: 'À faire',
-}
-
-const INITIAL_LIST_TASKS = [
-  {
-    id: 'task-1',
-    title: 'Livrable sprint : Maquettes API livret',
-    quadrant: 1,
-    context: 'Entreprise',
-    tag: 'Entreprise',
-    deadline: "Aujourd'hui, 17h00",
-    deadlineType: 'alarm',
-    isUrgentBadge: true,
-    status: 'inprogress', 
-    completed: false,
-  },
-  {
-    id: 'task-2',
-    title: 'Réponse offre alternance N+1',
-    quadrant: 1,
-    context: 'École',
-    tag: 'École',
-    deadline: 'Demain, 12h00',
-    deadlineType: 'alarm',
-    isUrgentBadge: true,
-    status: 'todo',
-    completed: false,
-  },
-  {
-    id: 'task-3',
-    title: 'Rédaction chapitre mémoire pro',
-    quadrant: 2,
-    context: 'École',
-    tag: 'École',
-    deadline: 'Dans 5 jours',
-    deadlineType: 'event',
-    isUrgentBadge: false,
-    status: 'todo',
-    completed: false,
-  },
-  {
-    id: 'task-4',
-    title: 'Relecture slides soutenance',
-    quadrant: 3,
-    context: 'École',
-    tag: 'École',
-    sharedWith: 'Sarah',
-    isUrgentBadge: false,
-    status: 'inprogress',
-    completed: false,
-  },
-  {
-    id: 'task-5',
-    title: 'Nettoyage des favoris navigateur',
-    quadrant: 4,
-    context: 'Entreprise',
-    tag: 'Entreprise',
-    deadline: 'Archivé',
-    isUrgentBadge: false,
-    status: 'done',
-    completed: true,
-  },
-]
-
-export default function ListAndFiltersPage({ onShowToast }) {
+export default function ListAndFiltersPage({
+  tasks = [],
+  onToggleStatus,
+  onCycleStatus,
+  onDeleteTask,
+  onShowToast,
+}) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeStatusFilter, setActiveStatusFilter] = useState('all') 
-  const [activeContextFilter, setActiveContextFilter] = useState('all') 
+  const [activeStatusFilter, setActiveStatusFilter] = useState('all')
+  const [activeContextFilter, setActiveContextFilter] = useState('all')
 
-  const [overdueTask, setOverdueTask] = useState(INITIAL_OVERDUE_TASK)
-  const [tasks, setTasks] = useState(INITIAL_LIST_TASKS)
+  const overdueTask = useMemo(() => {
+    const now = new Date()
+    return (
+      tasks.find((t) => {
+        if (t.completed || t.status === 'done') return false
+        if (t.dueDate && new Date(t.dueDate) < now) return true
+        return false
+      }) || null
+    )
+  }, [tasks])
 
   function handleQuickDoneOverdue() {
-    setOverdueTask(null)
+    if (!overdueTask) return
+    onToggleStatus?.(overdueTask.id, true)
     onShowToast?.('Tâche en retard clôturée ! Bien joué.')
   }
 
   function handleRescheduleOverdue() {
-    setOverdueTask(null)
-    onShowToast?.('Tâche reportée à demain 09:00')
+    if (!overdueTask) return
+    onShowToast?.('Pour replanifier, modifiez la date de la tâche dans la matrice.')
   }
 
   function handleToggleCheck(taskId) {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const nextDone = !t.completed
-          onShowToast?.(nextDone ? 'Tâche marquée comme terminée !' : 'Tâche réactivée')
-          return {
-            ...t,
-            completed: nextDone,
-            status: nextDone ? 'done' : 'todo',
-          }
-        }
-        return t
-      })
-    )
+    const target = tasks.find((t) => t.id === taskId)
+    if (!target) return
+    const nextDone = !target.completed
+    onToggleStatus?.(taskId, nextDone)
   }
 
-  function handleCycleStatus(taskId) {
-    const cycle = { todo: 'inprogress', inprogress: 'done', done: 'todo' }
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const nextStatus = cycle[t.status] || 'todo'
-          const isDone = nextStatus === 'done'
-          onShowToast?.(`Statut mis à jour : ${getStatusLabel(nextStatus)}`)
-          return {
-            ...t,
-            status: nextStatus,
-            completed: isDone,
-          }
-        }
-        return t
-      })
-    )
-  }
-
-  function getStatusLabel(status) {
-    if (status === 'todo') return 'À faire'
-    if (status === 'inprogress') return 'En cours'
-    if (status === 'done') return 'Terminé'
-    return status
+  function handleCycle(taskId) {
+    const target = tasks.find((t) => t.id === taskId)
+    if (!target) return
+    const current = target.status === 'inprogress' ? 'doing' : (target.status || 'todo')
+    onCycleStatus?.(taskId, current)
   }
 
   function handleResetFilters() {
@@ -145,17 +58,20 @@ export default function ListAndFiltersPage({ onShowToast }) {
     return tasks.filter((task) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
-        const matchTitle = task.title.toLowerCase().includes(q)
-        const matchTag = task.tag?.toLowerCase().includes(q)
+        const matchTitle = (task.title || '').toLowerCase().includes(q)
+        const matchTag = (task.tag || task.context || '').toLowerCase().includes(q)
         if (!matchTitle && !matchTag) return false
       }
 
       if (activeStatusFilter !== 'all') {
-        if (task.status !== activeStatusFilter) return false
+        const norm = task.status === 'inprogress' ? 'doing' : (task.status || 'todo')
+        if (activeStatusFilter === 'todo' && norm !== 'todo') return false
+        if (activeStatusFilter === 'inprogress' && norm !== 'doing') return false
+        if (activeStatusFilter === 'done' && norm !== 'done') return false
       }
 
       if (activeContextFilter !== 'all') {
-        const taskCtx = task.context.toLowerCase()
+        const taskCtx = (task.context || '').toLowerCase()
         if (activeContextFilter === 'entreprise' && taskCtx !== 'entreprise') return false
         if (activeContextFilter === 'ecole' && taskCtx !== 'école' && taskCtx !== 'ecole')
           return false
@@ -167,12 +83,14 @@ export default function ListAndFiltersPage({ onShowToast }) {
 
   const statusCounts = useMemo(() => {
     return {
-      all: tasks.length + (overdueTask ? 1 : 0),
-      todo: tasks.filter((t) => t.status === 'todo').length + (overdueTask ? 1 : 0),
-      inprogress: tasks.filter((t) => t.status === 'inprogress').length,
-      done: tasks.filter((t) => t.status === 'done').length,
+      all: tasks.length,
+      todo: tasks.filter((t) => (t.status === 'todo' || !t.status) && !t.completed).length,
+      inprogress: tasks.filter(
+        (t) => (t.status === 'doing' || t.status === 'inprogress') && !t.completed
+      ).length,
+      done: tasks.filter((t) => t.status === 'done' || t.completed).length,
     }
-  }, [tasks, overdueTask])
+  }, [tasks])
 
   const q1 = useMemo(() => filteredTasks.filter((t) => t.quadrant === 1), [filteredTasks])
   const q2 = useMemo(() => filteredTasks.filter((t) => t.quadrant === 2), [filteredTasks])
@@ -341,12 +259,12 @@ export default function ListAndFiltersPage({ onShowToast }) {
                   crisis_alert
                 </span>
                 <span className="text-[11px] uppercase tracking-wider font-bold text-secondary">
-                  Alerte Retard · 1 jour
+                  Alerte Retard
                 </span>
               </div>
               <div className="flex items-center gap-1 bg-surface-container-lowest px-2 py-0.5 rounded-lg text-secondary text-[11px] font-semibold shadow-xs">
                 <span className="material-symbols-outlined text-[13px]">priority_high</span>
-                Quadrant I
+                Quadrant {overdueTask.quadrant || 1}
               </div>
             </div>
 
@@ -357,7 +275,7 @@ export default function ListAndFiltersPage({ onShowToast }) {
               <p className="text-xs text-on-secondary-fixed-variant mt-1 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[15px]">calendar_clock</span>
                 <span>
-                  Échéance : {overdueTask.deadline} • {overdueTask.tutorNote}
+                  Échéance : {overdueTask.deadline || overdueTask.dueDate || 'Dépassée'}
                 </span>
               </p>
             </div>
@@ -406,7 +324,8 @@ export default function ListAndFiltersPage({ onShowToast }) {
                   task={task}
                   hasAccentBorder={true}
                   onToggleCheck={() => handleToggleCheck(task.id)}
-                  onCycleStatus={() => handleCycleStatus(task.id)}
+                  onCycleStatus={() => handleCycle(task.id)}
+                  onDelete={onDeleteTask ? () => onDeleteTask(task.id) : null}
                 />
               ))}
             </div>
@@ -432,7 +351,8 @@ export default function ListAndFiltersPage({ onShowToast }) {
                   task={task}
                   hasAccentBorder={false}
                   onToggleCheck={() => handleToggleCheck(task.id)}
-                  onCycleStatus={() => handleCycleStatus(task.id)}
+                  onCycleStatus={() => handleCycle(task.id)}
+                  onDelete={onDeleteTask ? () => onDeleteTask(task.id) : null}
                 />
               ))}
             </div>
@@ -458,7 +378,8 @@ export default function ListAndFiltersPage({ onShowToast }) {
                   task={task}
                   hasAccentBorder={false}
                   onToggleCheck={() => handleToggleCheck(task.id)}
-                  onCycleStatus={() => handleCycleStatus(task.id)}
+                  onCycleStatus={() => handleCycle(task.id)}
+                  onDelete={onDeleteTask ? () => onDeleteTask(task.id) : null}
                 />
               ))}
             </div>
@@ -484,7 +405,8 @@ export default function ListAndFiltersPage({ onShowToast }) {
                   task={task}
                   hasAccentBorder={false}
                   onToggleCheck={() => handleToggleCheck(task.id)}
-                  onCycleStatus={() => handleCycleStatus(task.id)}
+                  onCycleStatus={() => handleCycle(task.id)}
+                  onDelete={onDeleteTask ? () => onDeleteTask(task.id) : null}
                 />
               ))}
             </div>
@@ -499,47 +421,54 @@ export default function ListAndFiltersPage({ onShowToast }) {
             Aucune tâche trouvée
           </h3>
           <p className="text-xs text-on-surface-variant mt-1 max-w-xs">
-            Ajustez vos filtres ou terminez la journée l'esprit tranquille.
+            {tasks.length === 0
+              ? 'Aucune tâche dans la base de données. Créez-en une depuis la matrice !'
+              : 'Ajustez vos filtres ou terminez la journée l’esprit tranquille.'}
           </p>
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="mt-space-md px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors"
-          >
-            Réinitialiser les filtres
-          </button>
+          {tasks.length > 0 && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="mt-space-md px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors"
+            >
+              Réinitialiser les filtres
+            </button>
+          )}
         </div>
       )}
 
-      <footer className="mt-space-lg mx-gutter p-space-md bg-surface-container-low rounded-xl flex items-center justify-between text-on-surface-variant border border-outline-variant/15">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-outline text-[20px]">
-            analytics
-          </span>
-          <span className="text-xs font-medium text-on-surface">
-            {tasks.length + (overdueTask ? 1 : 0)} tâches au total ·{' '}
-            <span className="text-secondary font-bold">
-              {overdueTask ? '1 en retard' : '0 en retard'}
-            </span>{' '}
-            · {statusCounts.done} terminées
-          </span>
-        </div>
-        <div className="flex items-center gap-1 text-xs font-semibold text-outline">
-          <span className="material-symbols-outlined text-[16px]">done_all</span>
-          <span>
-            {Math.round(
-              (statusCounts.done / (tasks.length + (overdueTask ? 1 : 0))) * 100
-            )}
-            %
-          </span>
-        </div>
-      </footer>
+      {tasks.length > 0 && (
+        <footer className="mt-space-lg mx-gutter p-space-md bg-surface-container-low rounded-xl flex items-center justify-between text-on-surface-variant border border-outline-variant/15">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-outline text-[20px]">
+              analytics
+            </span>
+            <span className="text-xs font-medium text-on-surface">
+              {tasks.length} tâche{tasks.length > 1 ? 's' : ''} au total ·{' '}
+              <span className="text-secondary font-bold">
+                {overdueTask ? '1 en retard' : '0 en retard'}
+              </span>{' '}
+              · {statusCounts.done} terminée{statusCounts.done > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-xs font-semibold text-outline">
+            <span className="material-symbols-outlined text-[16px]">done_all</span>
+            <span>
+              {tasks.length > 0
+                ? Math.round((statusCounts.done / tasks.length) * 100)
+                : 0}
+              %
+            </span>
+          </div>
+        </footer>
+      )}
     </div>
   )
 }
 
-function ListTaskCard({ task, hasAccentBorder, onToggleCheck, onCycleStatus }) {
+function ListTaskCard({ task, hasAccentBorder, onToggleCheck, onCycleStatus, onDelete }) {
   const isDone = task.status === 'done' || task.completed
+  const isDoing = task.status === 'doing' || task.status === 'inprogress'
 
   return (
     <article
@@ -581,38 +510,50 @@ function ListTaskCard({ task, hasAccentBorder, onToggleCheck, onCycleStatus }) {
               {task.title}
             </span>
 
-            {task.isUrgentBadge && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-secondary-fixed text-on-secondary-fixed shrink-0">
-                Urgent
-              </span>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {(task.urgent || task.quadrant === 1 || task.quadrant === 3) && (
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-secondary-fixed text-on-secondary-fixed">
+                  Urgent
+                </span>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="text-outline hover:text-error p-0.5 transition-colors"
+                  title="Supprimer la tâche"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-space-xs mt-1.5 flex-wrap">
-            {task.tag && (
+            {(task.tag || task.context) && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
                     task.context === 'Entreprise' ? 'bg-secondary' : 'bg-surface-tint'
                   }`}
                 ></span>
-                {task.tag}
+                {task.tag || task.context}
               </span>
             )}
 
-            {task.sharedWith && (
+            {task.delegateTo && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-secondary-fixed text-on-secondary-fixed">
                 <span className="material-symbols-outlined text-[13px]">group</span>
-                Partagé avec {task.sharedWith}
+                Délégué à {task.delegateTo}
               </span>
             )}
 
-            {task.deadline && (
+            {(task.dueDate || task.deadline) && (
               <span className="text-outline text-[11px] flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[13px]">
-                  {task.deadlineType === 'alarm' ? 'alarm' : 'event'}
+                  event
                 </span>
-                {task.deadline}
+                {task.dueDate || task.deadline}
               </span>
             )}
           </div>
@@ -627,17 +568,17 @@ function ListTaskCard({ task, hasAccentBorder, onToggleCheck, onCycleStatus }) {
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  task.status === 'done'
+                  isDone
                     ? 'bg-primary'
-                    : task.status === 'inprogress'
+                    : isDoing
                     ? 'bg-secondary'
                     : 'bg-outline'
                 }`}
               ></span>
               <span>
-                {task.status === 'done'
+                {isDone
                   ? 'Terminé'
-                  : task.status === 'inprogress'
+                  : isDoing
                   ? 'En cours'
                   : 'À faire'}
               </span>

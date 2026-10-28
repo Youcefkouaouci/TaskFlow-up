@@ -22,8 +22,7 @@ export default function ContextSwitch({
                 activeContext === 'Entreprise' ? 'bg-secondary' : 'bg-outline-variant'
               }`}
             ></span>
-            <span>Semaine Entreprise</span>
-            <span className="text-outline font-normal text-[11px]">(3j restants)</span>
+            <span>Entreprise</span>
           </button>
 
           <button

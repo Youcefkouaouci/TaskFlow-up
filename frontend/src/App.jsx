@@ -70,8 +70,8 @@ export default function App() {
     setActiveContext(context)
     showToast(
       context === 'Entreprise'
-        ? 'Filtre actif : Semaine Entreprise'
-        : 'Filtre actif : Cursus École'
+        ? 'Filtre actif : Entreprise'
+        : 'Filtre actif : École'
     )
   }
 
@@ -95,6 +95,26 @@ export default function App() {
       showToast('Nouvelle tâche ajoutée à la matrice !')
     } catch (error) {
       showToast('Erreur lors de la création de la tâche')
+      console.error(error)
+    }
+  }
+
+  async function handleCycleStatus(taskId, currentStatus) {
+    const nextStatus = currentStatus === 'todo' ? 'doing' : currentStatus === 'doing' ? 'done' : 'todo'
+    const isDone = nextStatus === 'done'
+    try {
+      await toggleTaskCompleted(taskId, isDone)
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, status: nextStatus, completed: isDone }
+            : t
+        )
+      )
+      const label = nextStatus === 'done' ? 'Terminé' : nextStatus === 'doing' ? 'En cours' : 'À faire'
+      showToast(`Statut mis à jour : ${label}`)
+    } catch (error) {
+      showToast('Impossible de mettre à jour le statut')
       console.error(error)
     }
   }
@@ -286,9 +306,19 @@ export default function App() {
 
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-7xl mx-auto px-gutter">
         {activeTab === 'liste' ? (
-          <ListAndFiltersPage onShowToast={showToast} />
+          <ListAndFiltersPage
+            tasks={tasks}
+            onToggleStatus={handleToggleStatus}
+            onCycleStatus={handleCycleStatus}
+            onDeleteTask={handleDeleteTask}
+            onShowToast={showToast}
+          />
         ) : activeTab === 'partages' ? (
-          <SharesPage onShowToast={showToast} />
+          <SharesPage
+            tasks={tasks}
+            currentUser={currentUser}
+            onShowToast={showToast}
+          />
         ) : activeTab === 'compte' ? (
           currentUser ? (
             <ProfilePage

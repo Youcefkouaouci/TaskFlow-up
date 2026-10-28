@@ -48,10 +48,14 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
   const [context, setContext] = useState('work')
   const [isUrgent, setIsUrgent] = useState(true)
   const [isImportant, setIsImportant] = useState(true)
+  const [dueDateIso, setDueDateIso] = useState(() => new Date().toISOString().slice(0, 10))
+  const [dueTime, setDueTime] = useState('18:00')
   const [dueDateText, setDueDateText] = useState("Aujourd'hui")
   const [dueTimeText, setDueTimeText] = useState('18:00 (avant fin de journée)')
+  const [datePreset, setDatePreset] = useState('today')
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [hasReminder, setHasReminder] = useState(true)
-  const [status, setStatus] = useState('todo') 
+  const [status, setStatus] = useState('todo')
   const [isShareEnabled, setIsShareEnabled] = useState(false)
   const [shareEmail, setShareEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -60,6 +64,65 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
     isImportant ? 'important' : 'notImportant'
   }`
   const verdict = MATRIX_CONFIG[verdictKey]
+
+  const applyPreset = useCallback((presetKey) => {
+    setDatePreset(presetKey)
+    const now = new Date()
+    if (presetKey === 'today') {
+      const iso = now.toISOString().slice(0, 10)
+      setDueDateIso(iso)
+      setDueDateText("Aujourd'hui")
+      setDueTime('18:00')
+      setDueTimeText('18:00 (avant fin de journée)')
+    } else if (presetKey === 'tomorrow') {
+      const next = new Date(now)
+      next.setDate(next.getDate() + 1)
+      const iso = next.toISOString().slice(0, 10)
+      setDueDateIso(iso)
+      setDueDateText('Demain')
+      setDueTime('09:00')
+      setDueTimeText('09:00 (début de matinée)')
+    } else if (presetKey === 'weekend') {
+      const next = new Date(now)
+      const daysUntilFriday = (5 - next.getDay() + 7) % 7 || 7
+      next.setDate(next.getDate() + daysUntilFriday)
+      const iso = next.toISOString().slice(0, 10)
+      setDueDateIso(iso)
+      setDueDateText('Fin de semaine')
+      setDueTime('17:00')
+      setDueTimeText('Vendredi 17:00')
+    } else if (presetKey === 'next_week') {
+      const next = new Date(now)
+      const daysUntilMonday = (1 - next.getDay() + 7) % 7 || 7
+      next.setDate(next.getDate() + daysUntilMonday)
+      const iso = next.toISOString().slice(0, 10)
+      setDueDateIso(iso)
+      setDueDateText('Lundi prochain')
+      setDueTime('09:00')
+      setDueTimeText('Lundi 09:00')
+    }
+  }, [])
+
+  function handleDateChange(isoVal) {
+    setDueDateIso(isoVal)
+    setDatePreset('custom')
+    if (!isoVal) {
+      setDueDateText('Non définie')
+      return
+    }
+    const d = new Date(isoVal)
+    if (Number.isNaN(d.getTime())) {
+      setDueDateText(isoVal)
+      return
+    }
+    const options = { weekday: 'short', day: 'numeric', month: 'short' }
+    setDueDateText(d.toLocaleDateString('fr-FR', options))
+  }
+
+  function handleTimeChange(timeVal) {
+    setDueTime(timeVal)
+    setDueTimeText(timeVal)
+  }
 
   const handleSubmit = useCallback(
     async (e) => {
@@ -74,7 +137,8 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
         quadrant: verdict.quadrant,
         context: context === 'work' ? 'Entreprise' : 'École',
         tag: context === 'work' ? 'Entreprise' : 'École',
-        deadline: dueDateText,
+        dueDate: dueDateIso,
+        deadline: `${dueDateText} ${dueTimeText}`.trim(),
         deadlineType: isUrgent ? 'urgent' : 'neutral',
         status: status === 'todo' ? 'À faire' : status === 'wip' ? 'En cours' : 'Terminé',
         completed: status === 'done',
@@ -101,7 +165,9 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
       isSubmitting,
       verdict.quadrant,
       context,
+      dueDateIso,
       dueDateText,
+      dueTimeText,
       isUrgent,
       isImportant,
       status,
@@ -251,7 +317,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px]">school</span>
-                <span className="truncate">École (Campus Bordeaux)</span>
+                <span className="truncate">École</span>
               </button>
 
               <button
@@ -266,7 +332,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 <span className="material-symbols-outlined text-[18px] text-secondary">
                   business_center
                 </span>
-                <span className="truncate">Entreprise (TechCorp)</span>
+                <span className="truncate">Entreprise</span>
               </button>
             </div>
           </div>
@@ -298,26 +364,18 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isUrgent}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsUrgent(!isUrgent)
-                }}
-                className={`w-12 h-7 rounded-full transition-colors relative flex items-center px-1 flex-shrink-0 ${
-                  isUrgent ? 'bg-secondary' : 'bg-surface-variant'
+
+              <div
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 flex-shrink-0 ${
+                  isUrgent ? 'bg-secondary' : 'bg-surface-container-high'
                 }`}
               >
-                <span
-                  className={`w-5 h-5 rounded-full shadow-sm transition-transform transform ${
-                    isUrgent
-                      ? 'bg-on-secondary translate-x-5'
-                      : 'bg-outline-variant translate-x-0'
+                <div
+                  className={`w-5 h-5 rounded-full bg-on-secondary shadow-sm transition-transform transform ${
+                    isUrgent ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
-              </button>
+              </div>
             </div>
 
             <div
@@ -327,7 +385,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               <div className="flex items-start gap-3 pr-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="material-symbols-outlined text-primary text-[20px]">
-                    verified
+                    star
                   </span>
                 </div>
                 <div className="flex flex-col min-w-0">
@@ -335,49 +393,44 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                     C'est important
                   </span>
                   <span className="text-xs text-on-surface-variant truncate">
-                    Impact déterminant pour diplôme ou contrat
+                    Impact direct sur votre diplôme ou votre poste
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isImportant}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsImportant(!isImportant)
-                }}
-                className={`w-12 h-7 rounded-full transition-colors relative flex items-center px-1 flex-shrink-0 ${
-                  isImportant ? 'bg-primary' : 'bg-surface-variant'
+
+              <div
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 flex-shrink-0 ${
+                  isImportant ? 'bg-primary' : 'bg-surface-container-high'
                 }`}
               >
-                <span
-                  className={`w-5 h-5 rounded-full shadow-sm transition-transform transform ${
-                    isImportant
-                      ? 'bg-on-primary translate-x-5'
-                      : 'bg-outline-variant translate-x-0'
+                <div
+                  className={`w-5 h-5 rounded-full bg-on-primary shadow-sm transition-transform transform ${
+                    isImportant ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
-              </button>
+              </div>
             </div>
           </div>
 
-          <div className="bg-surface-container-lowest rounded-xl p-4 shadow-xs flex flex-col gap-3 transition-all relative overflow-hidden border border-outline-variant/15">
-            <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${verdict.stripeClass}`} />
+          <div className="bg-surface-container-lowest rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col gap-2.5 border border-outline-variant/20">
+            <div
+              className={`absolute left-0 top-0 bottom-0 w-1.5 ${verdict.stripeClass}`}
+            />
 
-            <div className="flex items-center justify-between pl-1">
-              <div className="flex flex-col">
-                <span className="text-xs text-outline font-medium">Quadrant calculé</span>
-                <h2 className={`font-bold text-sm sm:text-base ${verdict.titleClass}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 pl-1">
+                <span className="material-symbols-outlined text-[20px] text-on-surface">
+                  auto_awesome
+                </span>
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider ${verdict.titleClass}`}
+                >
                   {verdict.title}
-                </h2>
+                </span>
               </div>
 
-              <div
-                aria-label="Visualisation de la matrice 2x2"
-                className="w-11 h-11 bg-surface-container rounded-lg p-1 flex items-center justify-center flex-shrink-0"
-              >
-                <svg className="w-full h-full" fill="none" viewBox="0 0 36 36">
+              <div className="w-9 h-9 flex items-center justify-center bg-surface-container-low rounded-lg border border-outline-variant/20">
+                <svg viewBox="0 0 36 36" className="w-6 h-6">
                   <rect
                     x="2"
                     y="2"
@@ -447,14 +500,22 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 <span className="material-symbols-outlined text-[16px]">calendar_today</span>
                 <span>Échéance & Alerte</span>
               </label>
-              <span className="bg-secondary/10 text-secondary text-xs font-semibold px-2 py-0.5 rounded-full">
-                J-0
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                className="bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[15px]">
+                  {isDatePickerOpen ? 'expand_less' : 'calendar_month'}
+                </span>
+                <span>{isDatePickerOpen ? 'Fermer' : 'Sélectionner date/heure'}</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
                 className="flex-1 bg-surface-container py-2 px-3 rounded-lg flex items-center justify-between text-left hover:bg-surface-container-high transition-colors"
               >
                 <div className="flex flex-col min-w-0">
@@ -466,7 +527,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                   </span>
                 </div>
                 <span className="material-symbols-outlined text-on-surface-variant text-[20px]">
-                  expand_more
+                  {isDatePickerOpen ? 'expand_less' : 'expand_more'}
                 </span>
               </button>
 
@@ -487,33 +548,86 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               </button>
             </div>
 
+            {isDatePickerOpen && (
+              <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/20 flex flex-col gap-3 animate-in fade-in duration-150">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="quick-preset-select" className="text-[11px] font-semibold text-outline uppercase">
+                    Sélection rapide (liste déroulante)
+                  </label>
+                  <select
+                    id="quick-preset-select"
+                    value={datePreset}
+                    onChange={(e) => applyPreset(e.target.value)}
+                    className="w-full bg-surface-container-lowest text-on-surface text-xs sm:text-sm py-2 px-2.5 rounded-lg border border-outline-variant/30 outline-none focus:border-secondary"
+                  >
+                    <option value="today">Aujourd'hui (18h00)</option>
+                    <option value="tomorrow">Demain (09h00)</option>
+                    <option value="weekend">Fin de semaine (Vendredi 17h00)</option>
+                    <option value="next_week">Lundi prochain (09h00)</option>
+                    <option value="custom">Date personnalisée (Calendrier)</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="calendar-date-input" className="text-[11px] font-semibold text-outline uppercase flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">event</span>
+                      <span>Calendrier (Date)</span>
+                    </label>
+                    <input
+                      id="calendar-date-input"
+                      type="date"
+                      value={dueDateIso}
+                      onChange={(e) => handleDateChange(e.target.value)}
+                      className="w-full bg-surface-container-lowest text-on-surface text-xs sm:text-sm py-2 px-2.5 rounded-lg border border-outline-variant/30 outline-none focus:border-secondary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="calendar-time-input" className="text-[11px] font-semibold text-outline uppercase flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      <span>Heure limite</span>
+                    </label>
+                    <input
+                      id="calendar-time-input"
+                      type="time"
+                      value={dueTime}
+                      onChange={(e) => handleTimeChange(e.target.value)}
+                      className="w-full bg-surface-container-lowest text-on-surface text-xs sm:text-sm py-2 px-2.5 rounded-lg border border-outline-variant/30 outline-none focus:border-secondary"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsDatePickerOpen(false)}
+                    className="px-3 py-1.5 rounded-lg bg-secondary text-on-secondary text-xs font-semibold active:scale-95 transition-all shadow-xs"
+                  >
+                    Valider la date
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 overflow-x-auto pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  setDueDateText('Demain')
-                  setDueTimeText('09h00 (début de matinée)')
-                }}
+                onClick={() => applyPreset('tomorrow')}
                 className="whitespace-nowrap px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-semibold hover:bg-surface-variant transition-colors"
               >
                 Demain 09h00
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setDueDateText('Fin de semaine')
-                  setDueTimeText('Vendredi 17h00')
-                }}
+                onClick={() => applyPreset('weekend')}
                 className="whitespace-nowrap px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-semibold hover:bg-surface-variant transition-colors"
               >
                 Fin de semaine
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setDueDateText('Lundi prochain')
-                  setDueTimeText('Lundi 09h00')
-                }}
+                onClick={() => applyPreset('next_week')}
                 className="whitespace-nowrap px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-semibold hover:bg-surface-variant transition-colors"
               >
                 Lundi prochain
@@ -600,7 +714,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                     type="email"
                     value={shareEmail}
                     onChange={(e) => setShareEmail(e.target.value)}
-                    placeholder="tuteur@techcorp.fr ou referent@campus.fr"
+                    placeholder="tuteur@email.com ou referent@ecole.fr"
                     className="bg-transparent text-xs sm:text-sm text-on-surface placeholder:text-outline-variant outline-none w-full"
                   />
                 </div>
