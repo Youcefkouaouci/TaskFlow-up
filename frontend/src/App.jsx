@@ -20,6 +20,7 @@ import {
   toggleTaskCompleted,
   deleteTask,
   delegateTask,
+  moveTaskToQuadrant,
 } from './services/taskService'
 import {
   getCurrentUser,
@@ -33,6 +34,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser())
   const [tasks, setTasks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [activeContext, setActiveContext] = useState('Entreprise') 
   const [isFocusFaireOnly, setIsFocusFaireOnly] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -43,10 +45,11 @@ export default function App() {
     async function loadTasks() {
       try {
         setIsLoading(true)
+        setLoadError(null)
         const data = await fetchTasks()
         setTasks(data)
       } catch (error) {
-        showToast('Erreur lors du chargement des tâches')
+        setLoadError('Impossible de charger les tâches. Vérifiez votre connexion.')
         console.error(error)
       } finally {
         setIsLoading(false)
@@ -103,6 +106,20 @@ export default function App() {
       showToast('Tâche supprimée du quadrant')
     } catch (error) {
       showToast('Erreur lors de la suppression')
+      console.error(error)
+    }
+  }
+
+  async function handleMoveQuadrant(taskId, newQuadrant) {
+    try {
+      await moveTaskToQuadrant(taskId, newQuadrant)
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, quadrant: newQuadrant } : t))
+      )
+      const labels = { 1: 'Faire', 2: 'Planifier', 3: 'Déléguer', 4: 'Éliminer' }
+      showToast(`Tâche déplacée → ${labels[newQuadrant]}`)
+    } catch (error) {
+      showToast('Impossible de déplacer la tâche')
       console.error(error)
     }
   }
@@ -333,6 +350,20 @@ export default function App() {
                 </span>
                 <span className="text-xs">Chargement de la matrice...</span>
               </div>
+            ) : loadError ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
+                <span className="material-symbols-outlined text-[32px] text-error">
+                  cloud_off
+                </span>
+                <p className="text-sm text-on-surface-variant">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors"
+                >
+                  Réessayer
+                </button>
+              </div>
             ) : (
               <section className="grid grid-cols-1 md:grid-cols-2 gap-space-md w-full">
                 <Quadrant
@@ -345,6 +376,7 @@ export default function App() {
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDeleteTask}
                   onDelegate={handleDelegateTask}
+                  onMoveQuadrant={handleMoveQuadrant}
                 />
 
                 {!isFocusFaireOnly && (
