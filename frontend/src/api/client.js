@@ -1,7 +1,18 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+/**
+ * ============================================================================
+ * TaskFlow - Client HTTP API
+ * ============================================================================
+ * Client HTTP centralisé avec gestion des tokens JWT Bearer, normalisation
+ * des URLs et extraction robuste des messages d'erreurs backend.
+ * ============================================================================
+ */
+
+const RAW_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+// S'assure que l'URL de base contient le préfixe /api
+const API_BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE.replace(/\/$/, "")}/api`;
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("taskflow_token") || localStorage.getItem("token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -9,12 +20,33 @@ async function request(path, options = {}) {
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  // Nettoyage de l'URL pour éviter les doublons /api/api
+  let cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (cleanPath.startsWith("/api/")) {
+    cleanPath = cleanPath.replace(/^\/api/, "");
+  }
+
+  const fullUrl = `${API_BASE}${cleanPath}`;
+  const res = await fetch(fullUrl, { ...options, headers });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      const hadToken = !!(localStorage.getItem("taskflow_token") || localStorage.getItem("token"));
+      localStorage.removeItem("taskflow_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("taskflow_user");
+      if (hadToken) {
+        window.location.href = "/";
+      }
+    }
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.message ?? `HTTP ${res.status}`);
+    const errorMessage =
+      (body.error && typeof body.error === "string" ? body.error : body.error?.message) ||
+      body.message ||
+      `Erreur HTTP ${res.status}`;
+    const err = new Error(errorMessage);
     err.status = res.status;
+    err.data = body;
     throw err;
   }
 
@@ -23,12 +55,15 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, data) =>
-    request(path, { method: "POST", body: JSON.stringify(data) }),
-  put: (path, data) =>
-    request(path, { method: "PUT", body: JSON.stringify(data) }),
-  patch: (path, data) =>
-    request(path, { method: "PATCH", body: JSON.stringify(data) }),
-  delete: (path) => request(path, { method: "DELETE" }),
+  get: (path, options) => request(path, { ...options, method: "GET" }),
+  post: (path, data, options) =>
+    request(path, { ...options, method: "POST", body: JSON.stringify(data) }),
+  put: (path, data, options) =>
+    request(path, { ...options, method: "PUT", body: JSON.stringify(data) }),
+  patch: (path, data, options) =>
+    request(path, { ...options, method: "PATCH", body: JSON.stringify(data) }),
+  delete: (path, options) => request(path, { ...options, method: "DELETE" }),
+  getBaseUrl: () => API_BASE,
+  getToken: () =>
+    localStorage.getItem("taskflow_token") || localStorage.getItem("token"),
 };

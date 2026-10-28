@@ -1,14 +1,16 @@
 services:
+  # Base de données MongoDB (isolée sur le réseau interne Docker, non exposée sur Internet)
   mongodb:
     image: mongo:8.0
-    container_name: taskflow-mongodb-prod
+    container_name: taskflow-mongodb
     restart: always
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DB_NAME:-taskflow}
     volumes:
-      - mongo-data-prod:/data/db
+      - mongo-data:/data/db
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
     networks:
-      - taskflow-network-prod
+      - taskflow-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -16,45 +18,83 @@ services:
       retries: 5
       start_period: 10s
 
+  # Backend Express + Socket.io (Production)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: taskflow-backend-prod
+    container_name: taskflow-backend
     restart: always
-    ports:
-      - "${BACKEND_PORT:-3000}:3000"
+    command: ["npm", "start"]
     environment:
       - PORT=3000
+      - NODE_ENV=production
       - MONGO_URI=mongodb://mongodb:27017/${MONGO_DB_NAME:-taskflow}
       - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=production
-    command: ["npm", "start"]
+      - CORS_ORIGIN=https://${DOMAIN_NAME}
+      - FRONTEND_URL=https://${DOMAIN_NAME}
+      - APP_NAME=${APP_NAME:-TaskFlow}
+      - MAIL_MAILER=${MAIL_MAILER:-smtp}
+      - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-465}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-ssl}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-TaskFlow}
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       mongodb:
         condition: service_healthy
     networks:
-      - taskflow-network-prod
+      - taskflow-network
 
+  # Frontend React compilé + Nginx interne
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: production
-    container_name: taskflow-frontend-prod
+      args:
+        VITE_API_URL: /api
+    container_name: taskflow-frontend
     restart: always
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
     networks:
-      - taskflow-network-prod
+      - taskflow-network
+
+  # Reverse Proxy HTTPS automatique (Let's Encrypt) avec Caddy
+  caddy:
+    image: caddy:2-alpine
+    container_name: taskflow-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+    networks:
+      - taskflow-network
 
 volumes:
-  mongo-data-prod:
-    name: taskflow-mongo-data-prod
+  mongo-data:
+    name: taskflow-mongo-data
+  uploads-data:
+    name: taskflow-uploads-data
+  caddy-data:
+    name: taskflow-caddy-data
+  caddy-config:
+    name: taskflow-caddy-config
 
 networks:
-  taskflow-network-prod:
-    name: taskflow-network-prod
+  taskflow-network:
+    name: taskflow-network
     driver: bridge

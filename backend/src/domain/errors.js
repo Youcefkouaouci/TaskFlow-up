@@ -1,9 +1,12 @@
 "use strict";
 
 class DomainException extends Error {
-  constructor(message) {
+  constructor(message, code = null) {
     super(message);
     this.name = this.constructor.name;
+    if (code) {
+      this.code = code;
+    }
   }
 }
 
