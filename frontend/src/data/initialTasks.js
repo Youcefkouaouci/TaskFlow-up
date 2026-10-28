@@ -1,12 +1,27 @@
+/**
+ * initialTasks.js
+ * Données d'exemple (mock) conformes à la maquette TaskFlow.
+ * 
+ * --------------------------------------------------------------------------
+ * NOTE API BACKEND :
+ * Lorsque le backend sera connecté, ces données seront remplacées par un appel
+ * GET sur l'endpoint :
+ * -> GET /api/tasks
+ * Avec éventuellement des paramètres de filtrage :
+ * -> GET /api/tasks?context=Entreprise
+ * --------------------------------------------------------------------------
+ */
+
 export const INITIAL_TASKS = [
+  // --- QUADRANT 1 : FAIRE (Urgent & Important) ---
   {
     id: 'task-1',
     title: 'Livrable sprint : Maquettes API livret',
-    quadrant: 1, 
+    quadrant: 1, // 1 = Faire
     context: 'Entreprise',
     tag: 'Entreprise',
     deadline: "Aujourd'hui 17h",
-    deadlineType: 'urgent', 
+    deadlineType: 'urgent', // badge rouge avec icône horloge
     status: 'En cours',
     completed: false,
     createdAt: new Date().toISOString(),
@@ -18,7 +33,7 @@ export const INITIAL_TASKS = [
     context: 'Entreprise',
     tag: 'Entreprise',
     deadline: 'Demain',
-    deadlineType: 'warning', 
+    deadlineType: 'warning', // badge rouge avec icône calendrier
     status: 'À faire',
     completed: false,
     createdAt: new Date().toISOString(),
@@ -36,14 +51,15 @@ export const INITIAL_TASKS = [
     createdAt: new Date().toISOString(),
   },
 
+  // --- QUADRANT 2 : PLANIFIER (Important & Non urgent) ---
   {
     id: 'task-4',
     title: 'Rédiger mémoire pro : Chapitre 2',
-    quadrant: 2, 
+    quadrant: 2, // 2 = Planifier
     context: 'École',
     tag: 'École',
     deadline: '12 nov.',
-    deadlineType: 'neutral', 
+    deadlineType: 'neutral', // icône calendrier neutre
     status: 'À faire',
     completed: false,
     createdAt: new Date().toISOString(),
@@ -55,7 +71,7 @@ export const INITIAL_TASKS = [
     context: 'Entreprise',
     tag: 'Entreprise',
     deadline: 'Fin du mois',
-    deadlineType: 'repeat', 
+    deadlineType: 'repeat', // icône repeat
     status: null,
     completed: false,
     createdAt: new Date().toISOString(),
@@ -73,14 +89,15 @@ export const INITIAL_TASKS = [
     createdAt: new Date().toISOString(),
   },
 
+  // --- QUADRANT 3 : DÉLÉGUER (Urgent & Non important) ---
   {
     id: 'task-7',
     title: 'Compte-rendu réunion groupe compta',
-    quadrant: 3, 
+    quadrant: 3, // 3 = Déléguer
     context: 'École',
     tag: 'École',
     delegateTo: 'Binôme Maxime',
-    actionType: 'share', 
+    actionType: 'share', // icône avion/partage
     completed: false,
     createdAt: new Date().toISOString(),
   },
@@ -91,18 +108,19 @@ export const INITIAL_TASKS = [
     context: 'École',
     tag: 'École',
     delegateTo: 'Resp. Trésorerie',
-    actionType: 'mail', 
+    actionType: 'mail', // icône email
     completed: false,
     createdAt: new Date().toISOString(),
   },
 
+  // --- QUADRANT 4 : ÉLIMINER (Ni urgent ni important) ---
   {
     id: 'task-9',
     title: 'Trier boîte mail secondaire',
-    quadrant: 4, 
+    quadrant: 4, // 4 = Éliminer
     context: 'Entreprise',
     tag: null,
-    actionType: 'delete', 
+    actionType: 'delete', // icône corbeille / suppression
     completed: false,
     createdAt: new Date().toISOString(),
   },

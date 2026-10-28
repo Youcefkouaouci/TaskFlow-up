@@ -1,3 +1,24 @@
+/**
+ * ============================================================================
+ * TaskFlow - Page Mot de Passe Oublié (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Écran de réinitialisation de mot de passe conforme à la charte monochrome
+ * TaskFlow et aux normes d'accessibilité WCAG AAA.
+ * 
+ * FONCTIONNALITÉS FRONTEND :
+ * 1. Formulaire épuré de demande de réinitialisation par email.
+ * 2. Validation dynamique à la saisie et à la soumission (format email requis).
+ * 3. Gestion asynchrone avec spinner vectoriel d'envoi.
+ * 4. État de confirmation visuel avec récapitulatif de l'email cible.
+ * 5. Possibilité de renvoyer le lien avec temporisation de sécurité (cooldown).
+ * 6. Retour immédiat à la connexion via bouton ou lien textuel.
+ * 
+ * SPÉCIFICATIONS DES ENDPOINTS API BACKEND :
+ * -> POST /api/auth/forgot-password (Envoi du token de reset par mail)
+ * -> POST /api/auth/reset-password (Soumission du nouveau mot de passe avec token)
+ * ============================================================================
+ */
+
 import { useState } from 'react'
 import { forgotPassword } from '../services/authService'
 
@@ -12,6 +33,14 @@ export default function ForgotPasswordPage({
   const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState(null)
 
+  // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ 1 : Soumission de la demande de réinitialisation
+  // ENDPOINT CIBLE : POST /api/auth/forgot-password
+  // PAYLOAD : { email: string }
+  // CODES HTTP ATTENDUS :
+  // - 200 OK : { message: "Instructions transmises par email" }
+  // - 422 Unprocessable Entity : { error: "Adresse email invalide" }
+  // --------------------------------------------------------------------------
   async function handleSubmit(e) {
     if (e) e.preventDefault()
 
@@ -50,9 +79,12 @@ export default function ForgotPasswordPage({
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111111] p-4 sm:p-6 lg:p-12 font-sans antialiased flex flex-col items-center justify-center">
+      {/* 1. Carte Principale Mot de passe oublié */}
       <div className="w-full max-w-[420px] bg-white border border-[#E8E8E8] rounded-2xl p-7 sm:p-8 shadow-xs">
+        {/* Logo & Tagline */}
         <div className="text-center mb-7">
           <div className="inline-flex items-center gap-2.5 mb-2">
+            {/* Grille 2x2 Logo TaskFlow */}
             <svg
               width="22"
               height="22"
@@ -113,6 +145,9 @@ export default function ForgotPasswordPage({
         </div>
 
         {!isSubmitted ? (
+          /* ================================================================ */
+          /* ÉTAT 1 : FORMULAIRE DE SAISIE DE L'EMAIL                          */
+          /* ================================================================ */
           <>
             <div className="mb-6">
               <h1 className="text-xl font-semibold text-[#111111] tracking-tight">
@@ -123,6 +158,7 @@ export default function ForgotPasswordPage({
               </p>
             </div>
 
+            {/* Bannière d'erreur */}
             {error && (
               <div className="mb-5 p-3 bg-[#FFF0F0] border border-[#E5484D] rounded-lg flex items-start gap-2.5 text-xs text-[#E5484D] animate-fadeIn">
                 <svg
@@ -142,6 +178,8 @@ export default function ForgotPasswordPage({
               </div>
             )}
 
+            {/* Formulaire de demande */}
+            {/* ENDPOINT : POST /api/auth/forgot-password */}
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               <div>
                 <label
@@ -171,6 +209,7 @@ export default function ForgotPasswordPage({
                 />
               </div>
 
+              {/* Bouton CTA d'envoi */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -226,6 +265,9 @@ export default function ForgotPasswordPage({
             </form>
           </>
         ) : (
+          /* ================================================================ */
+          /* ÉTAT 2 : CONFIRMATION D'ENVOI DU LIEN PAR EMAIL                   */
+          /* ================================================================ */
           <div className="flex flex-col items-center text-center py-2 animate-fadeIn">
             <div className="w-12 h-12 rounded-full bg-[#FFF0F0] text-[#E5484D] flex items-center justify-center mb-4 border border-[#E5484D]/30">
               <svg
@@ -278,6 +320,7 @@ export default function ForgotPasswordPage({
           </div>
         )}
 
+        {/* Lien retour vers la connexion */}
         <div className="mt-6 pt-5 border-t border-[#E8E8E8] text-center">
           <button
             type="button"
@@ -302,6 +345,7 @@ export default function ForgotPasswordPage({
         </div>
       </div>
 
+      {/* Note accessibilité sous la carte */}
       <div className="mt-6 text-center text-xs text-[#6B6B6B] flex items-center justify-center flex-wrap gap-3">
         <span className="inline-flex items-center gap-1">
           <svg

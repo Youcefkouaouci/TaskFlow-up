@@ -1,3 +1,25 @@
+/**
+ * BottomNav.jsx
+ * Barre de navigation inférieure fixe pour mobile et desktop.
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Navigation entre les 4 vues de l'application :
+ *   1. "Matrice" (Vue courante de la matrice d'Eisenhower)
+ *   2. "Liste & Filtres" (Vue tabulaire / liste avec tri)
+ *   3. "Partages" (Tâches déléguées avec pastille de notification rouge)
+ *   4. "Compte" (Profil utilisateur et paramètres de l'alternance)
+ * - Indicateur actif avec surlignage rouge bordeaux supérieur (border-t-2)
+ * 
+ * NOTE API BACKEND / ROUTING :
+ * - Associé aux routes et endpoints suivants :
+ *   - Matrice : / (GET /api/tasks)
+ *   - Liste & Filtres : /tasks/list (GET /api/tasks?sort=deadline)
+ *   - Partages : /tasks/delegations (GET /api/tasks/delegated)
+ *   - Compte : /profile (GET /api/users/me)
+ * --------------------------------------------------------------------------
+ */
+
 export default function BottomNav({ activeTab = 'matrice', onSelectTab }) {
   const tabs = [
     {
@@ -16,7 +38,7 @@ export default function BottomNav({ activeTab = 'matrice', onSelectTab }) {
       id: 'partages',
       label: 'Partages',
       icon: 'forward_to_inbox',
-      hasBadge: true, 
+      hasBadge: true, // pastille rouge visible sur le screen
     },
     {
       id: 'compte',
@@ -46,6 +68,7 @@ export default function BottomNav({ activeTab = 'matrice', onSelectTab }) {
                 <span className="material-symbols-outlined text-[22px]">
                   {tab.icon}
                 </span>
+                {/* Pastille de notification rouge pour les partages */}
                 {tab.hasBadge && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary"></span>
                 )}

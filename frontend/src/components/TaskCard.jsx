@@ -1,35 +1,40 @@
-import { useState } from 'react'
-
-const QUADRANT_LABELS = {
-  1: { short: 'Q1', label: 'Faire' },
-  2: { short: 'Q2', label: 'Planifier' },
-  3: { short: 'Q3', label: 'Déléguer' },
-  4: { short: 'Q4', label: 'Éliminer' },
-}
+import { useState, useRef } from 'react'
 
 export default function TaskCard({
   task,
   onToggleStatus,
   onDelete,
   onDelegate,
-  onMoveQuadrant,
+  onShare,
 }) {
   const isCompleted = task.completed
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [showMoveMenu, setShowMoveMenu] = useState(false)
+  const [showShareForm, setShowShareForm] = useState(false)
+  const [shareEmail, setShareEmail] = useState('')
+  const [isSharing, setIsSharing] = useState(false)
+  const [shareError, setShareError] = useState(null)
+  const emailInputRef = useRef(null)
 
-  function handleDeleteClick() {
-    if (confirmingDelete) {
-      onDelete(task.id)
-      setConfirmingDelete(false)
-    } else {
-      setConfirmingDelete(true)
-    }
+  function handleShareToggle() {
+    setShowShareForm((v) => !v)
+    setShareError(null)
+    setShareEmail('')
+    setTimeout(() => emailInputRef.current?.focus(), 50)
   }
 
-  function handleMoveClick(quadrant) {
-    onMoveQuadrant(task.id, quadrant)
-    setShowMoveMenu(false)
+  async function handleShareSubmit(e) {
+    e.preventDefault()
+    if (!shareEmail.trim()) return
+    setIsSharing(true)
+    setShareError(null)
+    try {
+      await onShare(task.id, shareEmail.trim())
+      setShowShareForm(false)
+      setShareEmail('')
+    } catch (err) {
+      setShareError(err.message || 'Erreur lors du partage')
+    } finally {
+      setIsSharing(false)
+    }
   }
 
   return (
@@ -126,6 +131,22 @@ export default function TaskCard({
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
+          {onShare && (
+            <button
+              type="button"
+              onClick={handleShareToggle}
+              className={`p-1 rounded transition-colors ${
+                showShareForm
+                  ? 'text-primary bg-surface-container-high'
+                  : 'text-outline hover:text-primary hover:bg-surface-container'
+              }`}
+              title="Partager par email"
+              aria-label="Partager cette tâche par email"
+            >
+              <span className="material-symbols-outlined text-[18px]">forward_to_inbox</span>
+            </button>
+          )}
+
           {task.actionType === 'share' && (
             <button
               type="button"
@@ -150,70 +171,57 @@ export default function TaskCard({
             </button>
           )}
 
-          {onMoveQuadrant && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => { setShowMoveMenu((v) => !v); setConfirmingDelete(false) }}
-                className="text-outline hover:text-primary p-1 rounded hover:bg-surface-container transition-colors"
-                title="Déplacer vers un autre quadrant"
-              >
-                <span className="material-symbols-outlined text-[18px]">drive_file_move</span>
-              </button>
-
-              {showMoveMenu && (
-                <div className="absolute right-0 top-7 z-10 bg-surface-container-lowest border border-outline-variant/20 rounded-lg shadow-md p-1.5 flex flex-col gap-1 min-w-[120px]">
-                  {[1, 2, 3, 4].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      disabled={task.quadrant === q}
-                      onClick={() => handleMoveClick(q)}
-                      className={`text-left px-2.5 py-1.5 rounded text-[11px] font-semibold transition-colors ${
-                        task.quadrant === q
-                          ? 'text-outline cursor-default'
-                          : 'text-on-surface hover:bg-surface-container'
-                      }`}
-                    >
-                      {QUADRANT_LABELS[q].short} · {QUADRANT_LABELS[q].label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {confirmingDelete ? (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleDeleteClick}
-                className="text-[11px] font-semibold text-error bg-error-container/30 hover:bg-error-container/60 px-2 py-1 rounded transition-colors"
-              >
-                Confirmer
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                className="text-outline hover:text-on-surface p-1 rounded transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">close</span>
-              </button>
-            </div>
-          ) : (
+          {task.actionType === 'delete' && (
             <button
               type="button"
-              onClick={handleDeleteClick}
+              onClick={() => onDelete(task.id)}
               className="text-outline hover:text-error p-1 rounded hover:bg-error-container/20 transition-colors"
-              title="Supprimer cette tâche"
+              title="Éliminer / Supprimer cette tâche"
             >
               <span className="material-symbols-outlined text-[18px]">
-                {task.actionType === 'delete' ? 'delete_sweep' : 'delete'}
+                delete_sweep
               </span>
             </button>
           )}
         </div>
       </div>
+
+      {showShareForm && (
+        <form
+          onSubmit={handleShareSubmit}
+          className="flex flex-col gap-1.5 pt-2 border-t border-outline-variant/15 mt-1"
+        >
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={emailInputRef}
+              type="email"
+              value={shareEmail}
+              onChange={(e) => { setShareEmail(e.target.value); setShareError(null) }}
+              placeholder="Email du destinataire"
+              className="flex-1 h-8 px-2.5 text-xs rounded-lg bg-surface-container border border-outline-variant/30 outline-none focus:border-primary placeholder:text-outline text-on-surface"
+              disabled={isSharing}
+            />
+            <button
+              type="submit"
+              disabled={isSharing || !shareEmail.trim()}
+              className="h-8 px-2.5 bg-primary text-on-primary text-xs font-semibold rounded-lg disabled:opacity-50 transition-opacity"
+            >
+              {isSharing ? '…' : 'Envoyer'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowShareForm(false); setShareError(null) }}
+              className="p-1 text-outline hover:text-on-surface rounded transition-colors"
+              aria-label="Annuler"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+          {shareError && (
+            <p className="text-[11px] text-error px-0.5">{shareError}</p>
+          )}
+        </form>
+      )}
     </article>
   )
 }

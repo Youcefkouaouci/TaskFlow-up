@@ -1,5 +1,34 @@
+/**
+ * ============================================================================
+ * TaskFlow - Page de Création de Tâche (React 19 + Tailwind CSS v4)
+ * ============================================================================
+ * Reproduction exacte et enrichie de la maquette Stitch (code.html).
+ * 
+ * FONCTIONNALITÉS FRONTEND :
+ * 1. En-tête avec bouton retour, logo 2x2 et avatar utilisateur.
+ * 2. Titre d'action avec validation instantanée (désactive l'enregistrement si vide).
+ * 3. Sélecteur de sphère de responsabilité (École vs Entreprise).
+ * 4. MOTEUR DYNAMIQUE EISENHOWER :
+ *    - Toggles interactifs "C'est urgent" et "C'est important".
+ *    - Calcul automatique en temps réel du Quadrant cible (Q1, Q2, Q3, Q4).
+ *    - Carte de verdict dynamique avec mini-schéma vectoriel SVG de la matrice 2x2.
+ * 5. Sélecteur d'échéance & alertes avec raccourcis rapides ("Demain", "Fin de semaine", etc.).
+ * 6. Sélecteur de statut de démarrage (À faire, En cours, Terminé).
+ * 7. Dispatching collaboratif : notification par email avec champ dépliable.
+ * 8. Double CTA d'enregistrement (header et bas de page) avec support du raccourci clavier Ctrl+Enter / Cmd+Enter.
+ * 
+ * ENDPOINTS API BACKEND REQUIS :
+ * -> POST /api/tasks (Création de la tâche complète)
+ * -> POST /api/tasks/:id/notify (Optionnel : Envoi d'email automatique de synthèse au tuteur/référent)
+ * -> GET /api/users/me/contexts (Récupération des sphères de travail : Campus, Entreprise)
+ * ============================================================================
+ */
+
 import { useState, useEffect, useCallback } from 'react'
 
+/**
+ * Matrice de configuration des 4 verdicts Eisenhower
+ */
 const MATRIX_CONFIG = {
   'urgent-important': {
     quadrant: 1,
@@ -44,23 +73,46 @@ const MATRIX_CONFIG = {
 }
 
 export default function CreateTaskPage({ onBack, onSaveTask }) {
+  // --------------------------------------------------------------------------
+  // ÉTATS LOCAUX DU FORMULAIRE
+  // --------------------------------------------------------------------------
   const [title, setTitle] = useState("Dossier d'évaluation tuteur M1")
-  const [context, setContext] = useState('work') 
+  const [context, setContext] = useState('work') // 'school' | 'work'
   const [isUrgent, setIsUrgent] = useState(true)
   const [isImportant, setIsImportant] = useState(true)
   const [dueDateText, setDueDateText] = useState("Aujourd'hui")
   const [dueTimeText, setDueTimeText] = useState('18:00 (avant fin de journée)')
   const [hasReminder, setHasReminder] = useState(true)
-  const [status, setStatus] = useState('todo') 
+  const [status, setStatus] = useState('todo') // 'todo' | 'wip' | 'done'
   const [isShareEnabled, setIsShareEnabled] = useState(false)
   const [shareEmail, setShareEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // --------------------------------------------------------------------------
+  // CALCUL DYNAMIQUE DU VERDICT EISENHOWER
+  // --------------------------------------------------------------------------
   const verdictKey = `${isUrgent ? 'urgent' : 'notUrgent'}-${
     isImportant ? 'important' : 'notImportant'
   }`
   const verdict = MATRIX_CONFIG[verdictKey]
 
+  // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ : Soumission & Enregistrement de la tâche
+  // ENDPOINT CIBLE : POST /api/tasks
+  // CORPS REQUÊTE :
+  // {
+  //   title: string,
+  //   quadrant: number (1-4),
+  //   context: 'Entreprise' | 'École',
+  //   subContext: 'TechCorp' | 'Campus Bordeaux',
+  //   isUrgent: boolean,
+  //   isImportant: boolean,
+  //   deadline: string,
+  //   status: 'À faire' | 'En cours' | 'Terminé',
+  //   reminder: boolean,
+  //   notifyEmail: string | null
+  // }
+  // --------------------------------------------------------------------------
   const handleSubmit = useCallback(
     async (e) => {
       if (e) e.preventDefault()
@@ -113,6 +165,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
     ]
   )
 
+  // Support du raccourci clavier Cmd+Enter / Ctrl+Enter
   useEffect(() => {
     function handleKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -125,9 +178,12 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface antialiased">
+      {/* 1. Header supérieur avec bouton retour et identité TaskFlow */}
+      {/* ENDPOINT : GET /api/users/me (profil) */}
       <header className="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/15">
         <div className="h-16 px-gutter flex items-center justify-between max-w-2xl mx-auto">
           <div className="flex items-center gap-space-sm min-w-0">
+            {/* Bouton Retour vers la Matrice */}
             <button
               type="button"
               onClick={onBack}
@@ -137,6 +193,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               <span className="material-symbols-outlined text-[24px]">arrow_back</span>
             </button>
 
+            {/* Logo 2x2 */}
             <div className="w-8 h-8 rounded-lg flex items-center justify-center p-1 bg-surface-container-low border border-outline-variant/30 flex-shrink-0">
               <div className="grid grid-cols-2 gap-1 w-5 h-5">
                 <span className="bg-secondary rounded-[2px]"></span>
@@ -156,6 +213,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* Avatar utilisateur */}
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
             <span className="material-symbols-outlined text-on-primary text-[18px]">
               person
@@ -164,8 +222,10 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
         </div>
       </header>
 
+      {/* 2. Formulaire principal interactif */}
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-surface max-w-2xl mx-auto">
         <form onSubmit={handleSubmit} className="px-gutter pt-4 pb-8 flex flex-col gap-space-lg">
+          {/* Barre d'action supérieure (Action Sheet Header) */}
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -177,6 +237,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             <span className="text-xs font-semibold text-outline uppercase tracking-wider">
               Nouvelle tâche
             </span>
+            {/* ENDPOINT : POST /api/tasks */}
             <button
               type="submit"
               disabled={!title.trim() || isSubmitting}
@@ -202,6 +263,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </button>
           </div>
 
+          {/* Bandeau d'inspiration rapide */}
           <div className="bg-surface-container-low p-3 rounded-xl flex items-center justify-between border border-outline-variant/15">
             <div className="flex items-center gap-2 min-w-0">
               <span className="material-symbols-outlined text-secondary text-[18px]">
@@ -214,6 +276,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             <span className="text-xs text-outline flex-shrink-0">Matrice 2x2</span>
           </div>
 
+          {/* CHAMP 1 : Intitulé de l'action */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="taskTitle" className="text-xs font-semibold text-outline uppercase">
               Intitulé de l'action
@@ -231,6 +294,8 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CHAMP 2 : Sphère de responsabilité (Contexte Alternance) */}
+          {/* ENDPOINT : GET /api/users/me/contexts */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-outline uppercase">
@@ -241,6 +306,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               </span>
             </div>
             <div className="bg-surface-container-high p-1 rounded-xl grid grid-cols-2 gap-1">
+              {/* Option École */}
               <button
                 type="button"
                 onClick={() => setContext('school')}
@@ -254,6 +320,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 <span className="truncate">École (Campus Bordeaux)</span>
               </button>
 
+              {/* Option Entreprise */}
               <button
                 type="button"
                 onClick={() => setContext('work')}
@@ -271,6 +338,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CHAMP 3 : Évaluation Eisenhower (Moteur de calcul automatique) */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-outline uppercase">
@@ -279,6 +347,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               <span className="text-xs text-on-surface-variant">2 critères clés</span>
             </div>
 
+            {/* Toggle 1 : C'est urgent */}
             <div
               onClick={() => setIsUrgent(!isUrgent)}
               className="bg-surface-container-lowest rounded-xl p-3.5 flex items-center justify-between shadow-xs border border-outline-variant/15 cursor-pointer select-none hover:bg-surface-bright transition-colors"
@@ -320,6 +389,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               </button>
             </div>
 
+            {/* Toggle 2 : C'est important */}
             <div
               onClick={() => setIsImportant(!isImportant)}
               className="bg-surface-container-lowest rounded-xl p-3.5 flex items-center justify-between shadow-xs border border-outline-variant/15 cursor-pointer select-none hover:bg-surface-bright transition-colors"
@@ -362,7 +432,9 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CARTE VERDICT DYNAMIQUE EISENHOWER */}
           <div className="bg-surface-container-lowest rounded-xl p-4 shadow-xs flex flex-col gap-3 transition-all relative overflow-hidden border border-outline-variant/15">
+            {/* Liseré d'accentuation dynamique */}
             <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${verdict.stripeClass}`} />
 
             <div className="flex items-center justify-between pl-1">
@@ -373,11 +445,13 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 </h2>
               </div>
 
+              {/* Schéma vectoriel interactif de la matrice 2x2 */}
               <div
                 aria-label="Visualisation de la matrice 2x2"
                 className="w-11 h-11 bg-surface-container rounded-lg p-1 flex items-center justify-center flex-shrink-0"
               >
                 <svg className="w-full h-full" fill="none" viewBox="0 0 36 36">
+                  {/* Q1: Top-Left (Faire) */}
                   <rect
                     x="2"
                     y="2"
@@ -388,6 +462,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                       verdict.activeCell === 'q1' ? 'fill-secondary' : 'fill-surface-variant'
                     }`}
                   />
+                  {/* Q2: Top-Right (Planifier) */}
                   <rect
                     x="20"
                     y="2"
@@ -398,6 +473,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                       verdict.activeCell === 'q2' ? 'fill-primary' : 'fill-surface-variant'
                     }`}
                   />
+                  {/* Q3: Bottom-Left (Déléguer) */}
                   <rect
                     x="2"
                     y="20"
@@ -408,6 +484,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                       verdict.activeCell === 'q3' ? 'fill-outline' : 'fill-surface-variant'
                     }`}
                   />
+                  {/* Q4: Bottom-Right (Éliminer) */}
                   <rect
                     x="20"
                     y="20"
@@ -441,6 +518,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CHAMP 4 : Échéance & Alerte */}
           <div className="bg-surface-container-lowest rounded-xl p-3.5 shadow-xs flex flex-col gap-3 border border-outline-variant/15">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-outline uppercase flex items-center gap-1.5">
@@ -470,6 +548,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
                 </span>
               </button>
 
+              {/* Bouton Rappel Alerte -1h */}
               <button
                 type="button"
                 onClick={() => setHasReminder(!hasReminder)}
@@ -487,6 +566,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               </button>
             </div>
 
+            {/* Raccourcis rapides d'échéance */}
             <div className="flex items-center gap-2 overflow-x-auto pt-1">
               <button
                 type="button"
@@ -521,6 +601,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CHAMP 5 : Statut de démarrage */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-outline uppercase">
               Statut de démarrage
@@ -562,6 +643,8 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             </div>
           </div>
 
+          {/* CHAMP 6 : Collaboration & Envoi d'Email */}
+          {/* ENDPOINT : POST /api/tasks/:id/notify */}
           <div className="bg-surface-container-lowest rounded-xl p-3.5 shadow-xs flex flex-col gap-3 border border-outline-variant/15">
             <label
               className="flex items-start gap-3 cursor-pointer select-none"
@@ -590,6 +673,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
               </div>
             </label>
 
+            {/* Champ adresse email dépliable */}
             {isShareEnabled && (
               <div className="flex flex-col gap-1.5 pt-2 animate-in fade-in duration-150">
                 <div className="bg-surface-container-low rounded-lg p-2.5 flex items-center gap-2 border border-outline-variant/20 focus-within:border-secondary">
@@ -611,6 +695,7 @@ export default function CreateTaskPage({ onBack, onSaveTask }) {
             )}
           </div>
 
+          {/* CTA Principal secondaire en bas de page */}
           <div className="pt-2">
             <button
               type="submit"

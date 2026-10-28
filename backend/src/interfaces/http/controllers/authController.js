@@ -3,7 +3,7 @@ const User = require("../../../domain/identity/User");
 const env = require("../../../infrastructure/config/env");
 
 async function register(request, response) {
-  const { email, password } = request.body;
+  const { email, password, name, avatarUrl } = request.body;
 
   if (!email || !password) {
     return response
@@ -25,14 +25,18 @@ async function register(request, response) {
       });
   }
 
-  const user = await User.create({ email, password });
+  const user = await User.create({
+    email,
+    password,
+    name: name || email.split("@")[0],
+    avatarUrl: avatarUrl || null,
+  });
   const token = jwt.sign({ sub: user._id }, env.jwtSecret, {
     expiresIn: env.jwtExpiresIn,
   });
 
-  // Contrat §4.3 : {"user":{"id":"...","email":"..."},"token":"..."}
   return response.status(201).json({
-    user: { id: user._id.toString(), email: user.email },
+    user: { id: user._id.toString(), email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     token,
   });
 }
@@ -68,7 +72,7 @@ async function login(request, response) {
   });
 
   return response.status(200).json({
-    user: { id: user._id.toString(), email: user.email },
+    user: { id: user._id.toString(), email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     token,
   });
 }

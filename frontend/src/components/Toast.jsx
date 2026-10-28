@@ -1,3 +1,15 @@
+/**
+ * Toast.jsx
+ * Composant de notification éphémère (feedback utilisateur).
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Notification toast flottante au-dessus de la Bottom Navigation
+ * - Animation d'apparition/disparition
+ * - Feedback immédiat lors d'actions utilisateur (cocher, supprimer, filtrer, etc.)
+ * --------------------------------------------------------------------------
+ */
+
 export default function Toast({ toast }) {
   if (!toast || !toast.visible) return null
 

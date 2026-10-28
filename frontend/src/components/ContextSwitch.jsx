@@ -1,3 +1,22 @@
+/**
+ * ContextSwitch.jsx
+ * Sélecteur de contexte et déclencheur d'ajout rapide de tâche.
+ * 
+ * --------------------------------------------------------------------------
+ * FONCTIONNALITÉS FRONTEND :
+ * - Permet de basculer l'affichage entre les contextes (ex. "Semaine Entreprise" et "École")
+ * - Affiche le nombre de jours restants dans le cycle actuel ("3j restants")
+ * - Met à jour l'état actif avec transition visuelle fluide
+ * - Déclenche l'ouverture de la modale de création d'une nouvelle tâche
+ * 
+ * NOTE API BACKEND :
+ * - Sauvegarde du contexte actif :
+ *   -> POST /api/users/current-context (Body: { activeContext: 'Entreprise' | 'École' })
+ * - Récupération du calendrier/alternance :
+ *   -> GET /api/calendar/current-cycle -> { currentCycle: 'Entreprise', daysRemaining: 3 }
+ * --------------------------------------------------------------------------
+ */
+
 export default function ContextSwitch({
   activeContext,
   onSelectContext,
@@ -6,7 +25,9 @@ export default function ContextSwitch({
   return (
     <section className="py-space-md flex flex-col gap-space-sm">
       <div className="flex items-center justify-between gap-space-sm flex-wrap">
+        {/* Sélecteur de mode / contexte d'activité */}
         <div className="flex items-center gap-1 p-1 bg-surface-container rounded-lg">
+          {/* Option 1 : Semaine Entreprise */}
           <button
             type="button"
             id="tab-ent"
@@ -26,6 +47,7 @@ export default function ContextSwitch({
             <span className="text-outline font-normal text-[11px]">(3j restants)</span>
           </button>
 
+          {/* Option 2 : École */}
           <button
             type="button"
             id="tab-ecole"
@@ -45,6 +67,8 @@ export default function ContextSwitch({
           </button>
         </div>
 
+        {/* Bouton d'action principale : Ajouter une nouvelle tâche */}
+        {/* Ouvre le dialogue de création qui pointera vers : POST /api/tasks */}
         <button
           type="button"
           onClick={onOpenNewTaskModal}
