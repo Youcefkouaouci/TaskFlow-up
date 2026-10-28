@@ -2,6 +2,7 @@
 // env.js saute dotenv.config() quand NODE_ENV=test (Jest le définit automatiquement).
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 process.env.MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/taskflow_test";
+process.env.BCRYPT_ROUNDS = "4"; // 12 rounds en prod, 4 en test (~256x plus rapide)
 
 const path = require("path");
 
