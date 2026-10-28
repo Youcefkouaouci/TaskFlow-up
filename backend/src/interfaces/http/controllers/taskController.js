@@ -1,11 +1,11 @@
 "use strict";
 
 const { Task } = require("../../../domain/task/Task");
+const taskRepository = require("../../../infrastructure/persistence/task/TaskRepository");
 const {
   ValidationException,
   NotFoundException,
 } = require("../../../domain/errors");
-const taskRepository = require("../../../infrastructure/persistence/task/TaskRepository");
 
 const ALLOWED = new Set([
   "title",
@@ -16,8 +16,16 @@ const ALLOWED = new Set([
   "dueDate",
 ]);
 
-function assertNoForbiddenFields(body) {
-  const unknown = Object.keys(body).filter((k) => !ALLOWED.has(k));
+function assertValidBody(body, allowEmpty = false) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new ValidationException("Invalid task body");
+  }
+
+  if (!allowEmpty && Object.keys(body).length === 0) {
+    throw new ValidationException("Request body must contain at least one field");
+  }
+
+  const unknown = Object.keys(body).filter((key) => !ALLOWED.has(key));
   if (unknown.length > 0) {
     throw new ValidationException(
       `Unknown or forbidden fields: ${unknown.join(", ")}`,
@@ -25,10 +33,20 @@ function assertNoForbiddenFields(body) {
   }
 }
 
+async function getOwnedTask(id, ownerId) {
+  const task = await taskRepository.findById(id);
+
+  if (task.ownerId !== ownerId) {
+    throw new NotFoundException("Task not found");
+  }
+
+  return task;
+}
+
 async function create(req, res, next) {
   try {
     const body = req.body ?? {};
-    assertNoForbiddenFields(body);
+    assertValidBody(body, true);
 
     const task = new Task({
       title: body.title,
@@ -41,52 +59,56 @@ async function create(req, res, next) {
     });
 
     const saved = await taskRepository.create({
-      ...task,
+      title: task.title,
+      description: task.description,
+      urgent: task.urgent,
+      important: task.important,
+      status: task.status,
+      dueDate: task.dueDate,
       ownerId: req.user.id,
     });
-    res.status(201).json(saved.toJSON());
+
+    return res.status(201).json(saved.toJSON());
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
 async function list(req, res, next) {
   try {
     const tasks = await taskRepository.findByOwner(req.user.id);
-    res.json({ items: tasks.map((t) => t.toJSON()) });
+    return res.status(200).json({ items: tasks.map((task) => task.toJSON()) });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
 async function getOne(req, res, next) {
   try {
-    const task = await taskRepository.findById(req.params.id);
-    if (task.ownerId !== req.user.id)
-      throw new NotFoundException("Task not found");
-    res.json(task.toJSON());
+    const task = await getOwnedTask(req.params.id, req.user.id);
+    return res.status(200).json(task.toJSON());
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
 async function update(req, res, next) {
   try {
     const body = req.body ?? {};
-    assertNoForbiddenFields(body);
+    assertValidBody(body);
 
-    if (Object.keys(body).length === 0) {
-      throw new ValidationException(
-        "Request body must contain at least one field",
-      );
-    }
-
-    const existing = await taskRepository.findById(req.params.id);
-    if (existing.ownerId !== req.user.id)
-      throw new NotFoundException("Task not found");
-
-    // Re-validate full entity with merged values (domain invariant check)
-    const merged = new Task({ ...existing.toJSON(), ...body });
+    const existing = await getOwnedTask(req.params.id, req.user.id);
+    const merged = new Task({
+      id: existing.id,
+      title: body.title ?? existing.title,
+      description: body.description ?? existing.description,
+      urgent: body.urgent ?? existing.urgent,
+      important: body.important ?? existing.important,
+      status: body.status ?? existing.status,
+      dueDate: body.dueDate === undefined ? existing.dueDate : body.dueDate,
+      ownerId: existing.ownerId,
+      createdAt: existing.createdAt,
+    });
 
     const updates = {};
     for (const key of Object.keys(body)) {
@@ -94,21 +116,19 @@ async function update(req, res, next) {
     }
 
     const updated = await taskRepository.update(req.params.id, updates);
-    res.json(updated.toJSON());
+    return res.status(200).json(updated.toJSON());
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
 async function remove(req, res, next) {
   try {
-    const task = await taskRepository.findById(req.params.id);
-    if (task.ownerId !== req.user.id)
-      throw new NotFoundException("Task not found");
+    await getOwnedTask(req.params.id, req.user.id);
     await taskRepository.deleteById(req.params.id);
-    res.status(204).send();
+    return res.status(204).send();
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
