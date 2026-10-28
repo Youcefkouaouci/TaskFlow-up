@@ -175,11 +175,18 @@ class InvitationUseCases {
       throw new ValidationException("Invitation has expired");
     }
 
-    const groupDoc = await GroupModel.findById(invitationDoc.groupId);
+    const [groupDoc, inviterDoc, existingInvitedUser] = await Promise.all([
+      GroupModel.findById(invitationDoc.groupId),
+      UserModel.findById(invitationDoc.invitedBy),
+      UserModel.findOne({ email: invitationDoc.email.toLowerCase() }),
+    ]);
 
     return {
       ...invitationDoc.toJSON(),
       groupName: groupDoc ? groupDoc.name : null,
+      inviterName: inviterDoc ? inviterDoc.name || inviterDoc.email : null,
+      inviterEmail: inviterDoc ? inviterDoc.email : null,
+      userExists: Boolean(existingInvitedUser),
     };
   }
 

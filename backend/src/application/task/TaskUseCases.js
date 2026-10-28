@@ -13,6 +13,7 @@ const {
 const TaskModel = require("../../infrastructure/persistence/task/TaskSchema");
 const GroupModel = require("../../infrastructure/persistence/group/GroupSchema");
 const ProjectModel = require("../../infrastructure/persistence/project/ProjectSchema");
+const { emitToProject } = require("../../infrastructure/websocket/socketServer");
 
 const ALLOWED_UPDATE_FIELDS = [
   "title",
@@ -145,7 +146,9 @@ class TaskUseCases {
       ownerId,
     });
 
-    return created.toJSON();
+    const json = created.toJSON();
+    emitToProject(projectId, "project:task_created", json);
+    return json;
   }
 
   async createTaskInProject(userId, projectId, data) {
@@ -153,6 +156,77 @@ class TaskUseCases {
       throw new ValidationException("Invalid task payload");
     }
     return this.createTask(userId, { ...data, projectId });
+  }
+
+  async updateTaskInProject(userId, projectId, taskId, updates) {
+    await this.verifyProjectAccess(userId, projectId, true);
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      throw new ValidationException("Invalid task ID format");
+    }
+
+    const taskDoc = await TaskModel.findOne({ _id: taskId, projectId });
+    if (!taskDoc) {
+      throw new NotFoundException("Task not found in this project");
+    }
+
+    const merged = {
+      projectId: taskDoc.projectId,
+      title: updates.title !== undefined ? updates.title : taskDoc.title,
+      description:
+        updates.description !== undefined
+          ? updates.description
+          : taskDoc.description,
+      urgent: updates.urgent !== undefined ? updates.urgent : taskDoc.urgent,
+      important:
+        updates.important !== undefined ? updates.important : taskDoc.important,
+      status: updates.status !== undefined ? updates.status : taskDoc.status,
+      assignedTo:
+        updates.assignedTo !== undefined
+          ? updates.assignedTo
+          : taskDoc.assignedTo,
+      dueDate:
+        updates.dueDate !== undefined ? updates.dueDate : taskDoc.dueDate,
+      ownerId: taskDoc.ownerId,
+    };
+
+    if (updates.completed !== undefined && updates.status === undefined) {
+      merged.status = updates.completed
+        ? "done"
+        : taskDoc.status === "done"
+        ? "todo"
+        : taskDoc.status;
+    }
+
+    const validatedEntity = new Task(merged);
+
+    taskDoc.title = validatedEntity.title;
+    taskDoc.description = validatedEntity.description;
+    taskDoc.urgent = validatedEntity.urgent;
+    taskDoc.important = validatedEntity.important;
+    taskDoc.quadrant = validatedEntity.quadrant;
+    taskDoc.status = validatedEntity.status;
+    taskDoc.assignedTo = validatedEntity.assignedTo;
+    taskDoc.dueDate = validatedEntity.dueDate;
+
+    await taskDoc.save();
+    const json = taskDoc.toJSON();
+    emitToProject(projectId, "project:task_updated", json);
+    return json;
+  }
+
+  async deleteTaskInProject(userId, projectId, taskId) {
+    await this.verifyProjectAccess(userId, projectId, true);
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      throw new ValidationException("Invalid task ID format");
+    }
+
+    const deleted = await TaskModel.findOneAndDelete({ _id: taskId, projectId });
+    if (!deleted) {
+      throw new NotFoundException("Task not found in this project");
+    }
+
+    emitToProject(projectId, "project:task_deleted", { id: taskId });
+    return true;
   }
 
   async listTasksByProject(userId, projectId, filters = {}) {

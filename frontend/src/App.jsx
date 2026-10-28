@@ -50,7 +50,10 @@ export default function App() {
   const [activeContext, setActiveContext] = useState('Entreprise') // 'Entreprise' | 'École'
   const [isFocusFaireOnly, setIsFocusFaireOnly] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('matrice')
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tab') || 'matrice'
+  })
   const [toast, setToast] = useState({ message: '', visible: false })
 
   function showToast(message) {

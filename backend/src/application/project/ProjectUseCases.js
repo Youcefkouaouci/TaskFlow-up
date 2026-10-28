@@ -11,6 +11,7 @@ const {
 const GroupModel = require("../../infrastructure/persistence/group/GroupSchema");
 const ProjectModel = require("../../infrastructure/persistence/project/ProjectSchema");
 const TaskModel = require("../../infrastructure/persistence/task/TaskSchema");
+const UserModel = require("../../infrastructure/persistence/user/UserSchema");
 
 class ProjectUseCases {
   async createProject(userId, groupId, data) {
@@ -111,23 +112,55 @@ class ProjectUseCases {
       members: projectDoc.members,
     });
 
-    if (!projectEntity.canView(userId)) {
-      const groupDoc = await GroupModel.findById(projectDoc.groupId);
-      const isGroupAdmin =
-        groupDoc &&
-        new Group({
-          id: groupDoc._id,
-          name: groupDoc.name,
-          ownerId: groupDoc.ownerId,
-          members: groupDoc.members,
-        }).canManageGroup(userId);
+    const groupDoc = await GroupModel.findById(projectDoc.groupId);
+    const isGroupAdmin =
+      groupDoc &&
+      new Group({
+        id: groupDoc._id,
+        name: groupDoc.name,
+        ownerId: groupDoc.ownerId,
+        members: groupDoc.members,
+      }).canManageGroup(userId);
 
-      if (!isGroupAdmin) {
-        throw new ForbiddenException("Access denied to this project");
+    if (!projectEntity.canView(userId) && !isGroupAdmin) {
+      throw new ForbiddenException("Access denied to this project");
+    }
+
+    const allUserIds = new Set();
+    for (const m of projectDoc.members) {
+      if (m.userId) allUserIds.add(m.userId.toString());
+    }
+    if (groupDoc && Array.isArray(groupDoc.members)) {
+      for (const gm of groupDoc.members) {
+        if (gm.userId) allUserIds.add(gm.userId.toString());
       }
     }
 
-    return projectDoc.toJSON();
+    const users = await UserModel.find({ _id: { $in: [...allUserIds] } });
+    const userMap = new Map(
+      users.map((u) => [
+        u._id.toString(),
+        { name: u.name || u.email.split("@")[0], email: u.email },
+      ])
+    );
+
+    const json = projectDoc.toJSON();
+    json.groupName = groupDoc ? groupDoc.name : null;
+    json.myRole = projectEntity.getMemberRole(userId) || (isGroupAdmin ? "project_lead" : "viewer");
+    json.members = json.members.map((m) => ({
+      ...m,
+      name: userMap.get(m.userId)?.name || "Membre",
+      email: userMap.get(m.userId)?.email || "",
+    }));
+    json.groupMembers = groupDoc
+      ? groupDoc.toJSON().members.map((gm) => ({
+          ...gm,
+          name: userMap.get(gm.userId)?.name || "Membre",
+          email: userMap.get(gm.userId)?.email || "",
+        }))
+      : [];
+
+    return json;
   }
 
   async canUserAdministerProject(userId, projectDoc) {

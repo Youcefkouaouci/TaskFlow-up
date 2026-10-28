@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   fetchGroups,
   createGroup,
@@ -48,6 +49,7 @@ export default function SharesPage({
   onNavigateToLogin,
   onShowToast,
 }) {
+  const navigate = useNavigate()
   const [groups, setGroups] = useState([])
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [projects, setProjects] = useState([])
@@ -319,7 +321,8 @@ export default function SharesPage({
               {projects.map((p) => (
                 <div
                   key={p.id}
-                  className="p-3 rounded-xl bg-surface-container-low border border-outline-variant/15 flex flex-col gap-1"
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                  className="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/15 flex flex-col gap-2 cursor-pointer transition-all"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm font-bold text-on-surface truncate">
@@ -334,6 +337,12 @@ export default function SharesPage({
                       {p.description}
                     </p>
                   )}
+                  <div className="flex items-center justify-between pt-1 text-[11px] font-semibold text-secondary">
+                    <span>Ouvrir (Matrice · Chat · Fichiers)</span>
+                    <span className="material-symbols-outlined text-[15px]">
+                      arrow_forward
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

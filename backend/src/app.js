@@ -1,5 +1,6 @@
 "use strict";
 
+const path = require("path");
 const cors = require("cors");
 const express = require("express");
 
@@ -14,7 +15,9 @@ const errorHandler = require("./interfaces/http/middlewares/errorHandler");
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
+
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
 app.use("/api", healthRouter);
 app.use("/api/auth", authRoutes);
