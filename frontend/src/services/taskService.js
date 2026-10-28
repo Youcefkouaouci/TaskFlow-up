@@ -31,10 +31,32 @@ function quadrantToFields(quadrant) {
   return map[quadrant] ?? {}
 }
 
+// Mappe une tâche retournée par l'API vers le format attendu par l'UI
+function apiTaskToFrontend(task) {
+  const quadrantMap = {
+    'true-true': 1,
+    'false-true': 2,
+    'true-false': 3,
+    'false-false': 4,
+  }
+  return {
+    ...task,
+    quadrant: quadrantMap[`${task.urgent}-${task.important}`] ?? 1,
+    completed: task.status === 'done',
+  }
+}
+
+// Normalise les valeurs de status provenant de l'UI vers le contrat API
+const STATUS_MAP = {
+  todo: 'todo', 'À faire': 'todo',
+  wip: 'doing', 'En cours': 'doing', doing: 'doing',
+  done: 'done', 'Terminé': 'done',
+}
+
 export async function fetchTasks(filter = {}) {
   try {
     const data = await api.get('/tasks')
-    return data.items
+    return data.items.map(apiTaskToFrontend)
   } catch (err) {
     console.warn('[taskService] fetchTasks fallback localStorage', err)
     let tasks = getLocalTasks()
@@ -47,12 +69,19 @@ export async function fetchTasks(filter = {}) {
 
 export async function createTask(taskData) {
   try {
-    const { quadrant, context, tag, deadline, deadlineType, delegateTo, actionType, ...rest } = taskData
+    const {
+      quadrant, context, tag, deadline, deadlineType, delegateTo, actionType,
+      completed, isUrgent, isImportant, reminder, notifyEmail,
+      status: rawStatus,
+      ...rest
+    } = taskData
     const payload = {
       ...rest,
+      status: STATUS_MAP[rawStatus] ?? 'todo',
       ...quadrantToFields(quadrant),
     }
-    return await api.post('/tasks', payload)
+    const created = await api.post('/tasks', payload)
+    return apiTaskToFrontend(created)
   } catch (err) {
     console.warn('[taskService] createTask fallback localStorage', err)
     const tasks = getLocalTasks()
