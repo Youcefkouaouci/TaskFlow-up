@@ -4,6 +4,7 @@ const cors = require("cors");
 const express = require("express");
 const healthRouter = require("./interfaces/http/routes/healthRouter");
 const authRoutes = require("./interfaces/http/routes/auth");
+const taskRoutes = require("./interfaces/http/routes/tasks");
 const errorHandler = require("./interfaces/http/middlewares/errorHandler");
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use("/api", healthRouter);
 app.use("/api/auth", authRoutes);
+app.use("/api/tasks", taskRoutes);
 
 app.use(errorHandler);
 
