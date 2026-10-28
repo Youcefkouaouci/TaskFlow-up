@@ -31,8 +31,8 @@ services:
       - NODE_ENV=production
       - MONGO_URI=mongodb://mongodb:27017/${MONGO_DB_NAME:-taskflow}
       - JWT_SECRET=${JWT_SECRET}
-      - CORS_ORIGIN=https://${DOMAIN_NAME}
-      - FRONTEND_URL=https://${DOMAIN_NAME}
+      - CORS_ORIGIN=https://${DOMAIN_NAME:-app.nyb92.me}
+      - FRONTEND_URL=https://${DOMAIN_NAME:-app.nyb92.me}
       - APP_NAME=${APP_NAME:-TaskFlow}
       - MAIL_MAILER=${MAIL_MAILER:-smtp}
       - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
@@ -74,7 +74,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - DOMAIN_NAME=${DOMAIN_NAME:-app.nyb92.me}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
