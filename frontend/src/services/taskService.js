@@ -1,18 +1,16 @@
 import { api } from '../api/client'
-import { INITIAL_TASKS } from '../data/initialTasks'
-
+ 
 const STORAGE_KEY = 'taskflow_tasks_v1'
-
+ 
 function getLocalTasks() {
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_TASKS))
-    return INITIAL_TASKS
-  }
+  if (!stored) return []
   try {
-    return JSON.parse(stored)
+    const list = JSON.parse(stored)
+    if (!Array.isArray(list)) return []
+    return list.filter((t) => !/^task-[1-9]\d*$/.test(String(t?.id || '')))
   } catch {
-    return INITIAL_TASKS
+    return []
   }
 }
 
@@ -56,7 +54,10 @@ const STATUS_MAP = {
 export async function fetchTasks(filter = {}) {
   try {
     const data = await api.get('/tasks')
-    return data.items.map(apiTaskToFrontend)
+    const list = Array.isArray(data) ? data : (data?.items || [])
+    const tasks = list.map(apiTaskToFrontend)
+    saveLocalTasks(tasks)
+    return tasks
   } catch (err) {
     console.warn('[taskService] fetchTasks fallback localStorage', err)
     let tasks = getLocalTasks()
@@ -69,19 +70,19 @@ export async function fetchTasks(filter = {}) {
 
 export async function createTask(taskData) {
   try {
-    const {
-      quadrant, context, tag, deadline, deadlineType, delegateTo, actionType,
-      completed, isUrgent, isImportant, reminder, notifyEmail,
-      status: rawStatus,
-      ...rest
-    } = taskData
+    const { quadrant, status: rawStatus, title, description, dueDate, deadline } = taskData
     const payload = {
-      ...rest,
+      title,
+      description: description || '',
+      ...(dueDate || deadline ? { dueDate: dueDate || deadline } : {}),
       status: STATUS_MAP[rawStatus] ?? 'todo',
       ...quadrantToFields(quadrant),
     }
     const created = await api.post('/tasks', payload)
-    return apiTaskToFrontend(created)
+    const task = apiTaskToFrontend({ ...taskData, ...created })
+    const current = getLocalTasks()
+    saveLocalTasks([task, ...current])
+    return task
   } catch (err) {
     console.warn('[taskService] createTask fallback localStorage', err)
     const tasks = getLocalTasks()
@@ -99,7 +100,11 @@ export async function createTask(taskData) {
 
 export async function toggleTaskCompleted(taskId, completed) {
   try {
-    return await api.patch(`/tasks/${taskId}`, { status: completed ? 'done' : 'todo' })
+    const updated = await api.patch(`/tasks/${taskId}`, { status: completed ? 'done' : 'todo' })
+    const task = apiTaskToFrontend(updated)
+    const current = getLocalTasks()
+    saveLocalTasks(current.map((t) => (t.id === taskId ? task : t)))
+    return task
   } catch (err) {
     console.warn('[taskService] toggleTaskCompleted fallback localStorage', err)
     const tasks = getLocalTasks()
@@ -111,7 +116,10 @@ export async function toggleTaskCompleted(taskId, completed) {
 
 export async function deleteTask(taskId) {
   try {
-    return await api.delete(`/tasks/${taskId}`)
+    await api.delete(`/tasks/${taskId}`)
+    const current = getLocalTasks()
+    saveLocalTasks(current.filter((t) => t.id !== taskId))
+    return true
   } catch (err) {
     console.warn('[taskService] deleteTask fallback localStorage', err)
     const tasks = getLocalTasks()
@@ -125,7 +133,10 @@ export async function moveTaskToQuadrant(taskId, quadrant) {
   const fields = quadrantToFields(quadrant)
   try {
     const updated = await api.patch(`/tasks/${taskId}`, fields)
-    return apiTaskToFrontend(updated)
+    const task = apiTaskToFrontend(updated)
+    const current = getLocalTasks()
+    saveLocalTasks(current.map((t) => (t.id === taskId ? task : t)))
+    return task
   } catch (err) {
     console.warn('[taskService] moveTaskToQuadrant fallback localStorage', err)
     const tasks = getLocalTasks()

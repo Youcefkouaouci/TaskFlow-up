@@ -44,8 +44,8 @@ const MATRIX_CONFIG = {
 }
 
 export default function CreateTaskPage({ onBack, onSaveTask }) {
-  const [title, setTitle] = useState("Dossier d'évaluation tuteur M1")
-  const [context, setContext] = useState('work') 
+  const [title, setTitle] = useState('')
+  const [context, setContext] = useState('work')
   const [isUrgent, setIsUrgent] = useState(true)
   const [isImportant, setIsImportant] = useState(true)
   const [dueDateText, setDueDateText] = useState("Aujourd'hui")

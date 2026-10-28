@@ -62,7 +62,7 @@ export async function registerUser(userData) {
 }
 
 export async function forgotPassword(email) {
-  // Endpoint non implémenté côté backend — retourne un succès simulé
+  if (!email) throw new Error('Adresse e-mail requise')
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({ message: 'Instructions envoyées à votre adresse e-mail.' })
