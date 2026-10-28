@@ -13,36 +13,24 @@ export async function checkBackendHealth() {
 
 export async function loginUser(credentials) {
   if (ENABLE_REAL_API) {
-    try {
-      const data = await api.post('/auth/login', {
-        email: credentials.email.trim().toLowerCase(),
-        password: credentials.password,
-      })
+    const data = await api.post('/auth/login', {
+      email: credentials.email.trim().toLowerCase(),
+      password: credentials.password,
+    })
 
-      const user = {
-        id: data.userId || 'usr-default',
-        email: credentials.email.trim().toLowerCase(),
-        name: credentials.email.split('@')[0],
-        role: 'Alternant',
-      }
-
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('taskflow_token', data.token)
-        localStorage.setItem('taskflow_user', JSON.stringify(user))
-      }
-
-      return { token: data.token, user }
-    } catch (err) {
-      if (err.status) {
-        const error = new Error(err.message || 'Identifiants invalides')
-        error.status = err.status
-        throw error
-      }
-
-      console.warn('[authService] Erreur réseau, fallback simulation', err)
-      return mockLocalLogin(credentials)
+    const user = {
+      id: data.user?.id || data.userId,
+      email: credentials.email.trim().toLowerCase(),
+      name: credentials.email.split('@')[0],
+      role: 'Alternant',
     }
+
+    if (data.token) {
+      localStorage.setItem('taskflow_token', data.token)
+      localStorage.setItem('taskflow_user', JSON.stringify(user))
+    }
+
+    return { token: data.token, user }
   }
 
   return mockLocalLogin(credentials)
@@ -50,61 +38,39 @@ export async function loginUser(credentials) {
 
 export async function registerUser(userData) {
   if (ENABLE_REAL_API) {
-    try {
-      const data = await api.post('/auth/register', {
-        email: userData.email.trim().toLowerCase(),
-        password: userData.password,
-      })
+    const data = await api.post('/auth/register', {
+      email: userData.email.trim().toLowerCase(),
+      password: userData.password,
+    })
 
-      const user = {
-        id: data.userId || `usr-${Date.now()}`,
-        email: userData.email.trim().toLowerCase(),
-        name: userData.name || userData.email.split('@')[0],
-        role: userData.role || 'Alternant',
-      }
-
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('taskflow_token', data.token)
-        localStorage.setItem('taskflow_user', JSON.stringify(user))
-      }
-
-      return { token: data.token, user }
-    } catch (err) {
-      if (err.status) {
-        const error = new Error(err.message || "Erreur lors de l'inscription")
-        error.status = err.status
-        if (err.status === 409) {
-          error.fieldErrors = { email: 'Cet email est déjà associé à un compte' }
-        }
-        throw error
-      }
-
-      console.warn('[authService] Erreur réseau, fallback simulation', err)
-      return mockLocalRegister(userData)
+    const user = {
+      id: data.user?.id || data.userId,
+      email: userData.email.trim().toLowerCase(),
+      name: userData.name || userData.email.split('@')[0],
+      role: userData.role || 'Alternant',
     }
+
+    if (data.token) {
+      localStorage.setItem('taskflow_token', data.token)
+      localStorage.setItem('taskflow_user', JSON.stringify(user))
+    }
+
+    return { token: data.token, user }
   }
 
   return mockLocalRegister(userData)
 }
 
 export async function forgotPassword(email) {
-  try {
-    return await api.post('/auth/forgot-password', { email: email.trim().toLowerCase() })
-  } catch (err) {
-    if (!err.status || err.status === 404) {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ message: 'Instructions envoyées à votre adresse e-mail.' })
-        }, 500)
-      })
-    }
-    throw err
-  }
+  // Endpoint non implémenté côté backend — retourne un succès simulé
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ message: 'Instructions envoyées à votre adresse e-mail.' })
+    }, 500)
+  })
 }
 
 export async function logoutUser() {
-  localStorage.removeItem('token')
   localStorage.removeItem('taskflow_token')
   localStorage.removeItem('taskflow_user')
   return Promise.resolve()
@@ -138,7 +104,6 @@ function mockLocalLogin(credentials) {
         role: 'Alternant Master 2',
       }
       const token = 'mock_jwt_token_local_taskflow'
-      localStorage.setItem('token', token)
       localStorage.setItem('taskflow_token', token)
       localStorage.setItem('taskflow_user', JSON.stringify(user))
       resolve({ user, token })
@@ -163,7 +128,6 @@ function mockLocalRegister(userData) {
         role: role || 'Alternant',
       }
       const token = `jwt_mock_${Date.now()}`
-      localStorage.setItem('token', token)
       localStorage.setItem('taskflow_token', token)
       localStorage.setItem('taskflow_user', JSON.stringify(user))
       resolve({ user, token })

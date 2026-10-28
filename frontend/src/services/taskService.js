@@ -20,14 +20,23 @@ function saveLocalTasks(tasks) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
 }
 
+// Mappe le numéro de quadrant vers les champs urgent/important du backend
+function quadrantToFields(quadrant) {
+  const map = {
+    1: { urgent: true, important: true },
+    2: { urgent: false, important: true },
+    3: { urgent: true, important: false },
+    4: { urgent: false, important: false },
+  }
+  return map[quadrant] ?? {}
+}
+
 export async function fetchTasks(filter = {}) {
   try {
-    const query = new URLSearchParams()
-    if (filter.context && filter.context !== 'Tous') query.append('context', filter.context)
-    if (filter.quadrant) query.append('quadrant', filter.quadrant)
-    const queryString = query.toString() ? `?${query.toString()}` : ''
-    return await api.get(`/tasks${queryString}`)
-  } catch {
+    const data = await api.get('/tasks')
+    return data.items
+  } catch (err) {
+    console.warn('[taskService] fetchTasks fallback localStorage', err)
     let tasks = getLocalTasks()
     if (filter.context && filter.context !== 'Tous') {
       tasks = tasks.filter((t) => t.context === filter.context || t.tag === filter.context)
@@ -38,8 +47,14 @@ export async function fetchTasks(filter = {}) {
 
 export async function createTask(taskData) {
   try {
-    return await api.post('/tasks', taskData)
-  } catch {
+    const { quadrant, context, tag, deadline, deadlineType, delegateTo, actionType, ...rest } = taskData
+    const payload = {
+      ...rest,
+      ...quadrantToFields(quadrant),
+    }
+    return await api.post('/tasks', payload)
+  } catch (err) {
+    console.warn('[taskService] createTask fallback localStorage', err)
     const tasks = getLocalTasks()
     const newTask = {
       ...taskData,
@@ -55,8 +70,9 @@ export async function createTask(taskData) {
 
 export async function toggleTaskCompleted(taskId, completed) {
   try {
-    return await api.patch(`/tasks/${taskId}/status`, { completed })
-  } catch {
+    return await api.patch(`/tasks/${taskId}`, { status: completed ? 'done' : 'todo' })
+  } catch (err) {
+    console.warn('[taskService] toggleTaskCompleted fallback localStorage', err)
     const tasks = getLocalTasks()
     const updated = tasks.map((t) => (t.id === taskId ? { ...t, completed } : t))
     saveLocalTasks(updated)
@@ -67,7 +83,8 @@ export async function toggleTaskCompleted(taskId, completed) {
 export async function deleteTask(taskId) {
   try {
     return await api.delete(`/tasks/${taskId}`)
-  } catch {
+  } catch (err) {
+    console.warn('[taskService] deleteTask fallback localStorage', err)
     const tasks = getLocalTasks()
     const updated = tasks.filter((t) => t.id !== taskId)
     saveLocalTasks(updated)
@@ -76,16 +93,12 @@ export async function deleteTask(taskId) {
 }
 
 export async function delegateTask(taskId, delegationData) {
-  try {
-    return await api.post(`/tasks/${taskId}/delegate`, delegationData)
-  } catch {
-    const subject = encodeURIComponent(`[TaskFlow - Délégation] ${delegationData.title}`)
-    const body = encodeURIComponent(
-      `Bonjour,\n\nJe te délègue cette tâche : "${delegationData.title}".\n\nMerci,\nLucas (TaskFlow)`
-    )
-    window.location.href = `mailto:${delegationData.delegateTo || ''}?subject=${subject}&body=${body}`
-    return { success: true, localMailtoTriggered: true }
-  }
+  const subject = encodeURIComponent(`[TaskFlow - Délégation] ${delegationData.title}`)
+  const body = encodeURIComponent(
+    `Bonjour,\n\nJe te délègue cette tâche : "${delegationData.title}".\n\nMerci`
+  )
+  window.open(`mailto:${delegationData.delegateTo || ''}?subject=${subject}&body=${body}`)
+  return { success: true, localMailtoTriggered: true }
 }
 
 export function getQuadrantSummary(tasks) {

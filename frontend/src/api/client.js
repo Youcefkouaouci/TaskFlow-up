@@ -2,7 +2,7 @@ const RAW_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
 const API_BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE.replace(/\/$/, "")}/api`;
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem("token") || localStorage.getItem("taskflow_token");
+  const token = localStorage.getItem("taskflow_token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -19,8 +19,16 @@ async function request(path, options = {}) {
   const res = await fetch(fullUrl, { ...options, headers });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("taskflow_token");
+      localStorage.removeItem("taskflow_user");
+      window.location.href = "/";
+    }
     const body = await res.json().catch(() => ({}));
-    const errorMessage = body.error || body.message || `Erreur HTTP ${res.status}`;
+    const errorMessage =
+      (body.error && typeof body.error === "string" ? body.error : body.error?.message) ||
+      body.message ||
+      `Erreur HTTP ${res.status}`;
     const err = new Error(errorMessage);
     err.status = res.status;
     err.data = body;

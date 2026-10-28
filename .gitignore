@@ -3,8 +3,8 @@ node_modules/
 coverage/
 dist/
 
-# Fichiers Markdown
-*.md
+# Fichiers Markdown locaux (docs internes non versionnées)
+doc-perso/*.md
 
 # Collections de tests locales
 docs/*.json
