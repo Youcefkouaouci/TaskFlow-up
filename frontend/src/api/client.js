@@ -20,9 +20,12 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     if (res.status === 401) {
+      const hadToken = !!localStorage.getItem("taskflow_token");
       localStorage.removeItem("taskflow_token");
       localStorage.removeItem("taskflow_user");
-      window.location.href = "/";
+      if (hadToken) {
+        window.location.href = "/";
+      }
     }
     const body = await res.json().catch(() => ({}));
     const errorMessage =
