@@ -2,3 +2,10 @@ node_modules/
 .env
 coverage/
 dist/
+
+# Fichiers Markdown
+*.md
+
+# Collections de tests locales
+docs/*.json
+
