@@ -217,6 +217,16 @@ frontend/src/
   * Bouton de renvoi avec compte à rebours de sécurité (cooldown de 30 secondes).
   * Bouton principal et lien de retour rapide vers la connexion.
 
+### F31. Vue de Session Active & Déconnexion ("Vous êtes déjà connecté")
+* **Fichiers** : [`src/pages/ProfilePage.jsx`](file:///c:/Users/steef/OneDrive/Documents/TaskFlow/TaskFlow-up/frontend/src/pages/ProfilePage.jsx), [`src/App.jsx`](file:///c:/Users/steef/OneDrive/Documents/TaskFlow/TaskFlow-up/frontend/src/App.jsx), [`src/components/Header.jsx`](file:///c:/Users/steef/OneDrive/Documents/TaskFlow/TaskFlow-up/frontend/src/components/Header.jsx)
+* **Description** : Gestion ergonomique de l'état connecté :
+  * **Masquage des formulaires** : Lorsque l'utilisateur est authentifié (`token` JWT valide dans `localStorage`), les formulaires de connexion, inscription et mot de passe oublié ne sont plus affichés.
+  * **Bannière informative** : Affiche un bandeau vert émeraude avec coche de validation indiquant `Vous êtes déjà connecté. Votre compte est authentifié. Vos tâches et délégations sont synchronisées en continu avec la base de données.`.
+  * **Carte d'identité de l'alternant** : Affiche l'avatar avec initiales, l'adresse email, le profil et les badges techniques de session active (Docker Backend, JWT Bearer).
+  * **Accès direct au travail** : Liens rapides vers la matrice d'Eisenhower et la liste des tâches partagées.
+  * **Bouton de déconnexion** : Action stylisée aux couleurs d'alerte (`#E5484D`) permettant de vider le cache d'authentification (`localStorage.removeItem`), réinitialiser l'état et afficher une confirmation toast.
+  * **Indicateur Header** : L'avatar de l'en-tête affiche l'initiale de l'utilisateur ainsi qu'une pastille verte pulsée de présence en ligne.
+
 ---
 
 ## 7. Spécifications des Endpoints API Backend

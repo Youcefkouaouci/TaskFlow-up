@@ -15,7 +15,12 @@
  * --------------------------------------------------------------------------
  */
 
-export default function Header({ title = 'Matrice', urgentCount = 4, onProfileClick }) {
+export default function Header({
+  title = 'Matrice',
+  urgentCount = 4,
+  onProfileClick,
+  user = null,
+}) {
   return (
     <header className="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       <div className="h-16 px-gutter flex items-center justify-between max-w-7xl mx-auto">
@@ -66,11 +71,18 @@ export default function Header({ title = 'Matrice', urgentCount = 4, onProfileCl
           <button
             type="button"
             onClick={onProfileClick}
-            className="w-8 h-8 rounded-full bg-primary hover:bg-neutral-800 flex items-center justify-center flex-shrink-0 transition-transform active:scale-95"
+            className="relative w-8 h-8 rounded-full bg-primary hover:bg-neutral-800 flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer text-white font-bold text-xs"
             aria-label="Profil utilisateur"
-            title="Mon compte"
+            title={user ? `Connecté : ${user.name || user.email}` : 'Mon compte'}
           >
-            <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
+            {user ? (
+              <>
+                <span>{(user.name?.[0] || user.email?.[0] || 'U').toUpperCase()}</span>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-surface rounded-full"></span>
+              </>
+            ) : (
+              <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
+            )}
           </button>
         </div>
       </div>

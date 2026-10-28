@@ -29,6 +29,7 @@ import SharesPage from './pages/SharesPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ProfilePage from './pages/ProfilePage'
 import {
   fetchTasks,
   createTask,
@@ -36,6 +37,10 @@ import {
   deleteTask,
   delegateTask,
 } from './services/taskService'
+import {
+  getCurrentUser,
+  logoutUser,
+} from './services/authService'
 
 export default function App() {
   // --------------------------------------------------------------------------
@@ -44,6 +49,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('matrix') // 'matrix' | 'create-task' | 'login'
   const [authMode, setAuthMode] = useState('login') // 'login' | 'register' | 'forgot-password'
   const [authEmail, setAuthEmail] = useState('')
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser())
   const [tasks, setTasks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeContext, setActiveContext] = useState('Entreprise') // 'Entreprise' | 'École'
@@ -181,6 +187,22 @@ export default function App() {
   }
 
   // --------------------------------------------------------------------------
+  // FONCTIONNALITÉ 9 : Déconnexion de session utilisateur
+  // ENDPOINT CIBLE : Clôture du token JWT local & réinitialisation d'état
+  // --------------------------------------------------------------------------
+  async function handleLogout() {
+    try {
+      await logoutUser()
+      setCurrentUser(null)
+      setAuthMode('login')
+      showToast('Vous avez été déconnecté avec succès.')
+    } catch (error) {
+      console.error(error)
+      showToast('Erreur lors de la déconnexion')
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // CALCULS MÉTIER & FILTRAGE DES QUADRANTS
   // --------------------------------------------------------------------------
   const activeTasks = useMemo(() => tasks.filter((t) => !t.completed), [tasks])
@@ -221,9 +243,21 @@ export default function App() {
               <span>← Retour à la matrice</span>
             </button>
           </div>
-          {authMode === 'register' ? (
+          {currentUser ? (
+            <ProfilePage
+              user={currentUser}
+              onLogout={handleLogout}
+              onGoToMatrix={() => setCurrentPage('matrix')}
+              onGoToShares={() => {
+                setCurrentPage('matrix')
+                setActiveTab('partages')
+              }}
+              onShowToast={showToast}
+            />
+          ) : authMode === 'register' ? (
             <RegisterPage
               onRegisterSuccess={(user) => {
+                setCurrentUser(user)
                 setCurrentPage('matrix')
                 showToast(`Bienvenue ${user.name} ! Compte créé.`)
               }}
@@ -239,6 +273,7 @@ export default function App() {
           ) : (
             <LoginPage
               onLoginSuccess={(user) => {
+                setCurrentUser(user)
                 setCurrentPage('matrix')
                 showToast(`Bienvenue ${user.name} ! Connexion réussie.`)
               }}
@@ -282,7 +317,9 @@ export default function App() {
             : activeTab === 'liste'
             ? 'Liste & Filtres'
             : activeTab === 'compte'
-            ? authMode === 'register'
+            ? currentUser
+              ? 'Mon Compte'
+              : authMode === 'register'
               ? 'Inscription'
               : authMode === 'forgot-password'
               ? 'Mot de passe oublié'
@@ -291,6 +328,7 @@ export default function App() {
         }
         urgentCount={urgentCount}
         onProfileClick={() => setActiveTab('compte')}
+        user={currentUser}
       />
 
       {/* 2. Conteneur principal (avec dégagement Header et BottomNav) */}
@@ -302,12 +340,21 @@ export default function App() {
           /* VUE PARTAGES PAR EMAIL */
           <SharesPage onShowToast={showToast} />
         ) : activeTab === 'compte' ? (
-          /* VUE AUTHENTIFICATION / CONNEXION & INSCRIPTION */
-          authMode === 'register' ? (
+          /* VUE COMPTE UTILISATEUR / CONNEXION & INSCRIPTION */
+          currentUser ? (
+            <ProfilePage
+              user={currentUser}
+              onLogout={handleLogout}
+              onGoToMatrix={() => setActiveTab('matrice')}
+              onGoToShares={() => setActiveTab('partages')}
+              onShowToast={showToast}
+            />
+          ) : authMode === 'register' ? (
             <RegisterPage
               onRegisterSuccess={(user) => {
+                setCurrentUser(user)
                 setActiveTab('matrice')
-                showToast(`Bienvenue ${user.name} !`)
+                showToast(`Bienvenue ${user.name} ! Compte créé.`)
               }}
               onNavigateToLogin={() => setAuthMode('login')}
               onShowToast={showToast}
@@ -321,8 +368,9 @@ export default function App() {
           ) : (
             <LoginPage
               onLoginSuccess={(user) => {
+                setCurrentUser(user)
                 setActiveTab('matrice')
-                showToast(`Bienvenue ${user.name} !`)
+                showToast(`Bienvenue ${user.name} ! Connexion réussie.`)
               }}
               onNavigateToRegister={() => setAuthMode('register')}
               onNavigateToForgotPassword={(email) => {

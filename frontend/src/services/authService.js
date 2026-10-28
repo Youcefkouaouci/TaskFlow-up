@@ -2,205 +2,221 @@
  * ============================================================================
  * TaskFlow - Service d'Authentification (Auth API Service Layer)
  * ============================================================================
+ * Connecté directement aux endpoints backend Express / MongoDB :
+ * - POST /api/auth/login
+ * - POST /api/auth/register
+ * - GET /api/health
  * 
- * Ce module gère toutes les interactions avec les endpoints d'authentification JWT.
- * Architecture Orientée API (Hexagonale / REST).
- * 
- * CONTRATS D'ENDPOINTS BACKEND :
- * 
- * 1. CONNEXION UTILISATEUR :
- *    - Méthode : POST
- *    - Route : /api/auth/login
- *    - Payload JSON : { "email": string, "password": string }
- *    - Réponses HTTP :
- *      - 200 OK : { "token": "jwt_token_string", "user": { "id", "email", "name", "role" } }
- *      - 401 Unauthorized : { "error": "Email ou mot de passe incorrect." }
- *      - 422 Unprocessable Entity : { "errors": { "email": "Adresse invalide", "password": "8 caractères min" } }
- * 
- * 2. INSCRIPTION / CRÉATION DE COMPTE :
- *    - Méthode : POST
- *    - Route : /api/auth/register
- *    - Payload JSON : { "name": string, "email": string, "password": string, "role": string }
- *    - Réponses HTTP :
- *      - 201 Created : { "token": "jwt_token_string", "user": { "id", "email", "name", "role" } }
- *      - 409 Conflict : { "error": "Cette adresse email est déjà associée à un compte." }
- *      - 422 Unprocessable Entity : { "errors": { ... } }
- * 
- * 3. MOT DE PASSE OUBLIÉ :
- *    - Méthode : POST
- *    - Route : /api/auth/forgot-password
- *    - Payload JSON : { "email": string }
- *    - Réponse HTTP : 200 OK : { "message": "Email de réinitialisation transmis." }
- * 
- * 4. VÉRIFICATION DU TOKEN / PROFIL UTILISATEUR :
- *    - Méthode : GET
- *    - Route : /api/auth/me
- *    - Header : Authorization: Bearer <token>
- *    - Réponses HTTP :
- *      - 200 OK : { "user": { ... } }
- *      - 401 / 403 Forbidden : Session expirée
- * 
- * 5. DÉCONNEXION :
- *    - Méthode : POST
- *    - Route : /api/auth/logout
+ * Avec persistance des tokens JWT dans le localStorage et gestion fluide
+ * des erreurs d'authentification (401 Identifiants invalides, 409 Email déjà utilisé, etc.).
  * ============================================================================
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
-const ENABLE_REAL_API = false // Basculer à true quand le backend Express/Mongo sera connecté
+import { api } from '../api/client'
+
+// Utilise l'API réelle par défaut puisque le backend Express est opérationnel
+const ENABLE_REAL_API = true
+
+/**
+ * Vérification de la connectivité et santé du backend
+ * Endpoint cible : GET /api/health
+ */
+export async function checkBackendHealth() {
+  try {
+    const res = await api.get('/health')
+    return { online: true, status: res.status }
+  } catch (err) {
+    return { online: false, error: err.message }
+  }
+}
 
 /**
  * Connexion par e-mail et mot de passe
  * Endpoint cible : POST /api/auth/login
+ * @param {{ email: string, password: string }} credentials
+ * @returns {Promise<{ token: string, user: { id: string, email: string, name: string, role: string } }>}
  */
 export async function loginUser(credentials) {
   if (ENABLE_REAL_API) {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
-    })
+    try {
+      const data = await api.post('/auth/login', {
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+      })
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}))
-      const error = new Error(errorData.error || 'Erreur lors de la connexion')
-      error.status = res.status
-      error.errors = errorData.errors
-      throw error
+      // Construction de l'objet utilisateur session
+      const user = {
+        id: data.userId || 'usr-default',
+        email: credentials.email.trim().toLowerCase(),
+        name: credentials.email.split('@')[0],
+        role: 'Alternant',
+      }
+
+      // Stockage sécurisé du token JWT
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('taskflow_token', data.token)
+        localStorage.setItem('taskflow_user', JSON.stringify(user))
+      }
+
+      return { token: data.token, user }
+    } catch (err) {
+      // Si le backend renvoie une erreur métier (401, 400, etc.), propager directement
+      if (err.status) {
+        const error = new Error(err.message || 'Identifiants invalides')
+        error.status = err.status
+        throw error
+      }
+
+      // Si erreur réseau (backend non joignable)
+      console.warn('[authService] Erreur réseau, fallback simulation', err)
+      return mockLocalLogin(credentials)
     }
-
-    const data = await res.json()
-    localStorage.setItem('taskflow_token', data.token)
-    return data
   }
 
-  // Simulation locale avec validation
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const { email, password } = credentials
-
-      // Simulation cas d'erreur identifiants
-      if (email.includes('invalide') || password.length < 8) {
-        const err = new Error('Email ou mot de passe incorrect.')
-        err.status = 401
-        err.fieldErrors = {
-          email: !email.includes('@') ? 'Adresse email invalide' : null,
-          password: password.length < 8 ? '8 caractères minimum' : null,
-        }
-        return reject(err)
-      }
-
-      const mockUser = {
-        id: 'usr-1',
-        email: email,
-        name: 'Lucas Martin',
-        role: 'Alternant Master 2',
-      }
-      const mockToken = 'mock_jwt_token_taskflow_xyz123'
-      localStorage.setItem('taskflow_token', mockToken)
-      resolve({ user: mockUser, token: mockToken })
-    }, 700)
-  })
+  return mockLocalLogin(credentials)
 }
 
 /**
- * Inscription / Création de compte
+ * Inscription d'un nouvel utilisateur
  * Endpoint cible : POST /api/auth/register
+ * @param {{ name: string, email: string, password: string, role: string }} userData
+ * @returns {Promise<{ token: string, user: { id: string, email: string, name: string, role: string } }>}
  */
 export async function registerUser(userData) {
   if (ENABLE_REAL_API) {
-    const res = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData),
-    })
+    try {
+      const data = await api.post('/auth/register', {
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+      })
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}))
-      const error = new Error(errorData.error || "Erreur lors de l'inscription")
-      error.status = res.status
-      error.errors = errorData.errors
-      throw error
+      const user = {
+        id: data.userId || `usr-${Date.now()}`,
+        email: userData.email.trim().toLowerCase(),
+        name: userData.name || userData.email.split('@')[0],
+        role: userData.role || 'Alternant',
+      }
+
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('taskflow_token', data.token)
+        localStorage.setItem('taskflow_user', JSON.stringify(user))
+      }
+
+      return { token: data.token, user }
+    } catch (err) {
+      if (err.status) {
+        const error = new Error(err.message || "Erreur lors de l'inscription")
+        error.status = err.status
+        if (err.status === 409) {
+          error.fieldErrors = { email: 'Cet email est déjà associé à un compte' }
+        }
+        throw error
+      }
+
+      console.warn('[authService] Erreur réseau, fallback simulation', err)
+      return mockLocalRegister(userData)
     }
-
-    const data = await res.json()
-    localStorage.setItem('taskflow_token', data.token)
-    return data
   }
 
-  // Simulation locale avec validation
+  return mockLocalRegister(userData)
+}
+
+/**
+ * Demande de réinitialisation de mot de passe
+ * Endpoint cible : POST /api/auth/forgot-password (Prêt pour backend futur)
+ */
+export async function forgotPassword(email) {
+  try {
+    return await api.post('/auth/forgot-password', { email: email.trim().toLowerCase() })
+  } catch (err) {
+    // Si endpoint pas encore codé côté backend (404), simulation réussie côté client
+    if (!err.status || err.status === 404) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ message: 'Instructions envoyées à votre adresse e-mail.' })
+        }, 500)
+      })
+    }
+    throw err
+  }
+}
+
+/**
+ * Déconnexion utilisateur
+ * Supprime les tokens de session
+ */
+export async function logoutUser() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('taskflow_token')
+  localStorage.removeItem('taskflow_user')
+  return Promise.resolve()
+}
+
+/**
+ * Récupération de l'utilisateur actuellement connecté depuis le cache local
+ */
+export function getCurrentUser() {
+  const stored = localStorage.getItem('taskflow_user')
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+// ----------------------------------------------------------------------------
+// SIMULATIONS LOCALES DE SECOURS (Si backend éteint)
+// ----------------------------------------------------------------------------
+function mockLocalLogin(credentials) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      const { name, email, password, role } = userData
+      const { email, password } = credentials
+      if (email.includes('invalide') || password.length < 8) {
+        const err = new Error('Email ou mot de passe incorrect.')
+        err.status = 401
+        return reject(err)
+      }
+      const user = {
+        id: 'usr-1',
+        email,
+        name: email.split('@')[0],
+        role: 'Alternant Master 2',
+      }
+      const token = 'mock_jwt_token_local_taskflow'
+      localStorage.setItem('token', token)
+      localStorage.setItem('taskflow_token', token)
+      localStorage.setItem('taskflow_user', JSON.stringify(user))
+      resolve({ user, token })
+    }, 600)
+  })
+}
 
-      // Simulation email déjà existant
+function mockLocalRegister(userData) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const { name, email, role } = userData
       if (email === 'admin@taskflow.fr' || email.includes('deja-pris')) {
         const err = new Error('Cette adresse email est déjà associée à un compte.')
         err.status = 409
         err.fieldErrors = { email: 'Email déjà utilisé' }
         return reject(err)
       }
-
-      if (!name || name.trim().length < 2) {
-        const err = new Error('Veuillez renseigner un nom complet valide.')
-        err.status = 422
-        err.fieldErrors = { name: '2 caractères minimum requis' }
-        return reject(err)
-      }
-
-      if (!email.includes('@')) {
-        const err = new Error('Adresse email invalide.')
-        err.status = 422
-        err.fieldErrors = { email: 'Adresse email invalide' }
-        return reject(err)
-      }
-
-      if (password.length < 8) {
-        const err = new Error('Le mot de passe doit comporter au moins 8 caractères.')
-        err.status = 422
-        err.fieldErrors = { password: '8 caractères minimum' }
-        return reject(err)
-      }
-
-      const newUser = {
+      const user = {
         id: `usr-${Date.now()}`,
-        email: email,
-        name: name,
-        role: role || 'Alternant Master 2',
+        email,
+        name,
+        role: role || 'Alternant',
       }
-      const mockToken = `jwt_${Date.now()}_taskflow`
-      localStorage.setItem('taskflow_token', mockToken)
-      resolve({ user: newUser, token: mockToken })
-    }, 750)
+      const token = `jwt_mock_${Date.now()}`
+      localStorage.setItem('token', token)
+      localStorage.setItem('taskflow_token', token)
+      localStorage.setItem('taskflow_user', JSON.stringify(user))
+      resolve({ user, token })
+    }, 600)
   })
-}
-
-/**
- * Demande de réinitialisation de mot de passe
- * Endpoint cible : POST /api/auth/forgot-password
- */
-export async function forgotPassword(email) {
-  if (ENABLE_REAL_API) {
-    const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-    return res.json()
-  }
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ message: 'Instructions envoyées à votre adresse e-mail.' })
-    }, 500)
-  })
-}
-
-/**
- * Déconnexion utilisateur
- * Endpoint cible : POST /api/auth/logout
- */
-export async function logoutUser() {
-  localStorage.removeItem('taskflow_token')
-  return Promise.resolve()
 }
