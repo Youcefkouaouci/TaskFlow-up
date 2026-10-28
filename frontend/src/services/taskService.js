@@ -121,6 +121,22 @@ export async function deleteTask(taskId) {
   }
 }
 
+export async function moveTaskToQuadrant(taskId, quadrant) {
+  const fields = quadrantToFields(quadrant)
+  try {
+    const updated = await api.patch(`/tasks/${taskId}`, fields)
+    return apiTaskToFrontend(updated)
+  } catch (err) {
+    console.warn('[taskService] moveTaskToQuadrant fallback localStorage', err)
+    const tasks = getLocalTasks()
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, quadrant, ...fields } : t
+    )
+    saveLocalTasks(updated)
+    return updated.find((t) => t.id === taskId)
+  }
+}
+
 export async function delegateTask(taskId, delegationData) {
   const subject = encodeURIComponent(`[TaskFlow - Délégation] ${delegationData.title}`)
   const body = encodeURIComponent(

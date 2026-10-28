@@ -1,10 +1,36 @@
+import { useState } from 'react'
+
+const QUADRANT_LABELS = {
+  1: { short: 'Q1', label: 'Faire' },
+  2: { short: 'Q2', label: 'Planifier' },
+  3: { short: 'Q3', label: 'Déléguer' },
+  4: { short: 'Q4', label: 'Éliminer' },
+}
+
 export default function TaskCard({
   task,
   onToggleStatus,
   onDelete,
   onDelegate,
+  onMoveQuadrant,
 }) {
   const isCompleted = task.completed
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [showMoveMenu, setShowMoveMenu] = useState(false)
+
+  function handleDeleteClick() {
+    if (confirmingDelete) {
+      onDelete(task.id)
+      setConfirmingDelete(false)
+    } else {
+      setConfirmingDelete(true)
+    }
+  }
+
+  function handleMoveClick(quadrant) {
+    onMoveQuadrant(task.id, quadrant)
+    setShowMoveMenu(false)
+  }
 
   return (
     <article
@@ -124,15 +150,65 @@ export default function TaskCard({
             </button>
           )}
 
-          {task.actionType === 'delete' && (
+          {onMoveQuadrant && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setShowMoveMenu((v) => !v); setConfirmingDelete(false) }}
+                className="text-outline hover:text-primary p-1 rounded hover:bg-surface-container transition-colors"
+                title="Déplacer vers un autre quadrant"
+              >
+                <span className="material-symbols-outlined text-[18px]">drive_file_move</span>
+              </button>
+
+              {showMoveMenu && (
+                <div className="absolute right-0 top-7 z-10 bg-surface-container-lowest border border-outline-variant/20 rounded-lg shadow-md p-1.5 flex flex-col gap-1 min-w-[120px]">
+                  {[1, 2, 3, 4].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      disabled={task.quadrant === q}
+                      onClick={() => handleMoveClick(q)}
+                      className={`text-left px-2.5 py-1.5 rounded text-[11px] font-semibold transition-colors ${
+                        task.quadrant === q
+                          ? 'text-outline cursor-default'
+                          : 'text-on-surface hover:bg-surface-container'
+                      }`}
+                    >
+                      {QUADRANT_LABELS[q].short} · {QUADRANT_LABELS[q].label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {confirmingDelete ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDeleteClick}
+                className="text-[11px] font-semibold text-error bg-error-container/30 hover:bg-error-container/60 px-2 py-1 rounded transition-colors"
+              >
+                Confirmer
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="text-outline hover:text-on-surface p-1 rounded transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => onDelete(task.id)}
+              onClick={handleDeleteClick}
               className="text-outline hover:text-error p-1 rounded hover:bg-error-container/20 transition-colors"
-              title="Éliminer / Supprimer cette tâche"
+              title="Supprimer cette tâche"
             >
               <span className="material-symbols-outlined text-[18px]">
-                delete_sweep
+                {task.actionType === 'delete' ? 'delete_sweep' : 'delete'}
               </span>
             </button>
           )}

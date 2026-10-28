@@ -10,6 +10,7 @@ export default function Quadrant({
   onToggleStatus,
   onDelete,
   onDelegate,
+  onMoveQuadrant,
 }) {
   return (
     <div
@@ -55,6 +56,7 @@ export default function Quadrant({
               onToggleStatus={onToggleStatus}
               onDelete={onDelete}
               onDelegate={onDelegate}
+              onMoveQuadrant={onMoveQuadrant}
             />
           ))
         ) : (
