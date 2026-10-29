@@ -1,4 +1,15 @@
 node_modules/
 .env
+**/.env
+.env.*
+!.env.example
+!.env.production.example
+!backend/.env.example
 coverage/
 dist/
+
+# Fichiers Markdown locaux (docs internes non versionnées)
+doc-perso/*.md
+
+# Collections de tests locales
+docs/*.json
