@@ -1,11 +1,12 @@
 services:
   # Base de données MongoDB (isolée sur le réseau interne Docker, non exposée sur Internet)
   mongodb:
-    image: mongo:8.0
+    image: mongo:8.0.4
     container_name: taskflow-mongodb
     restart: always
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DB_NAME:-taskflow}
+      - GLIBC_TUNABLES=glibc.pthread.rseq=0
     volumes:
       - mongo-data:/data/db
       - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
